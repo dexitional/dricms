@@ -1,0 +1,32 @@
+-- A claim is a "Request for Disbursement of Research/Consultancy Project Funds"
+-- for one project phase. The form's breakdown table lives in claim_items.
+CREATE TABLE claims (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  reference VARCHAR(20) NOT NULL,
+  phase_id INT UNSIGNED NOT NULL,
+  investigator_id INT UNSIGNED NULL,
+  purpose VARCHAR(300) NOT NULL,
+  description TEXT NULL,
+  reasons TEXT NULL,
+  amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  currency CHAR(3) NOT NULL DEFAULT 'GHS',
+  status ENUM('PENDING','PROCESSING','APPROVED','DECLINED') NOT NULL DEFAULT 'PENDING',
+  signed_name VARCHAR(150) NULL,
+  signed_at DATE NULL,
+  received_at DATE NULL,
+  director_decision TEXT NULL,
+  director_name VARCHAR(150) NULL,
+  director_decided_at DATE NULL,
+  vc_decision TEXT NULL,
+  vc_name VARCHAR(150) NULL,
+  vc_decided_at DATE NULL,
+  created_by INT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_claims_reference (reference),
+  KEY idx_claims_status (status),
+  KEY idx_claims_phase (phase_id),
+  CONSTRAINT fk_claims_phase FOREIGN KEY (phase_id) REFERENCES phases (id) ON DELETE CASCADE,
+  CONSTRAINT fk_claims_investigator FOREIGN KEY (investigator_id) REFERENCES investigators (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

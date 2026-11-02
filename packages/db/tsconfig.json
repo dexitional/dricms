@@ -1,0 +1,4 @@
+{
+  "extends": "@dric/tsconfig/node-lib.json",
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+}

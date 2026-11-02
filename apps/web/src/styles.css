@@ -1,0 +1,250 @@
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/jetbrains-mono';
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* Tailwind v4 only scans this app's src/ — also scan the shared UI package. */
+@source '../../../packages/ui/src';
+@import '@dric/ui/tokens.css';
+@import 'tw-animate-css';
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+  }
+  input[type='number']::-webkit-inner-spin-button {
+    opacity: 0.4;
+  }
+}
+
+@layer components {
+  /* Primary button: navy with a light sweep on hover (uiverse "shine"). */
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .btn-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 25%, rgb(255 255 255 / 0.22) 45%, transparent 65%);
+    transform: translateX(-120%);
+    transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .btn-shine:hover::after {
+    transform: translateX(120%);
+  }
+
+  /* Text fields: soft fill that turns white with a navy halo on focus. */
+  .field-control {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid var(--input);
+    background: #fbfbfd;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--foreground);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s,
+      background 0.15s;
+    outline: none;
+  }
+  .field-control::placeholder {
+    color: var(--subtle-foreground);
+  }
+  .field-control:hover {
+    border-color: var(--border-strong);
+  }
+  .field-control:focus,
+  .field-control:focus-within {
+    background: #fff;
+    border-color: var(--primary);
+    box-shadow:
+      0 0 0 4px rgb(23 37 84 / 0.08),
+      0 1px 2px rgb(15 23 42 / 0.04);
+  }
+  .field-control[aria-invalid='true'] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 4px rgb(220 38 38 / 0.08);
+  }
+  .field-control:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Card that lifts gently on hover (dashboard tiles, form picker). */
+  .lift {
+    transition:
+      transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.25s,
+      border-color 0.25s;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -12px rgb(23 37 84 / 0.25);
+    border-color: var(--border-strong);
+  }
+
+  /* Uppercase monospace section label (sidebar groups, card eyebrows). */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--subtle-foreground);
+  }
+
+  /* Rich text from the report editor. */
+  .report-content {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #1e293b;
+  }
+  .report-content h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 1.2em 0 0.4em;
+    color: var(--primary);
+  }
+  .report-content h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 1em 0 0.3em;
+  }
+  .report-content p {
+    margin: 0.5em 0;
+  }
+  .report-content ul {
+    list-style: disc;
+    padding-left: 1.4em;
+  }
+  .report-content ol {
+    list-style: decimal;
+    padding-left: 1.4em;
+  }
+  .report-content blockquote {
+    border-left: 3px solid var(--secondary-strong);
+    padding-left: 1em;
+    color: var(--muted-foreground);
+  }
+  .report-content a {
+    color: var(--info);
+    text-decoration: underline;
+  }
+  .report-content hr {
+    margin: 1.5em 0;
+  }
+  .report-content .is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--subtle-foreground);
+  }
+
+  /* Hero band on the landing site: navy with crest-red and gold glows. */
+  .hero-band {
+    background:
+      radial-gradient(50rem 26rem at 90% -10%, rgb(254 226 226 / 0.18), transparent 60%),
+      radial-gradient(36rem 22rem at -5% 110%, rgb(245 158 11 / 0.14), transparent 60%),
+      linear-gradient(160deg, #172554 0%, #1e3a8a 60%, #172554 100%);
+  }
+  .dot-grid {
+    background-image: radial-gradient(circle, rgb(255 255 255 / 0.1) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}
+
+/* ------------------------------------------------------------- Printouts */
+
+.print-sheet {
+  font-family: 'Times New Roman', Times, serif;
+  color: #000;
+  background: #fff;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm 16mm 18mm;
+  margin: 0 auto;
+  font-size: 11.5pt;
+  line-height: 1.35;
+}
+.print-sheet table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.print-sheet .box {
+  border: 1px solid #000;
+}
+.print-sheet .cell {
+  border: 1px solid #000;
+  padding: 4px 8px;
+  vertical-align: top;
+}
+.print-sheet .rule-double {
+  border-top: 3px double #000;
+}
+.print-sheet .official {
+  background: #ededed;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    width: auto;
+    min-height: auto;
+    margin: 0;
+    padding: 12mm 15mm 16mm;
+    box-shadow: none !important;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+  .print-break-before {
+    break-before: page;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

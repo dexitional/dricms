@@ -1,0 +1,14 @@
+node_modules/
+.turbo/
+dist/
+.output/
+.nitro/
+.tanstack/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Uploaded files (contracts, budgets, request attachments)
+apps/web/storage/

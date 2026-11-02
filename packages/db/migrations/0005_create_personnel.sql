@@ -1,0 +1,23 @@
+CREATE TABLE personnel (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  title VARCHAR(30) NULL,
+  first_name VARCHAR(80) NOT NULL,
+  middle_name VARCHAR(120) NULL,
+  last_name VARCHAR(80) NOT NULL,
+  location VARCHAR(150) NULL,
+  phone VARCHAR(40) NULL,
+  email VARCHAR(150) NULL,
+  staff_no VARCHAR(40) NULL,
+  department VARCHAR(150) NULL,
+  address VARCHAR(255) NULL,
+  ghana_card_no VARCHAR(40) NULL,
+  account_name VARCHAR(150) NULL,
+  bank_name VARCHAR(150) NULL,
+  account_no VARCHAR(60) NULL,
+  bank_branch VARCHAR(120) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_personnel_name (last_name, first_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

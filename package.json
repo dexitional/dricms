@@ -1,0 +1,25 @@
+{
+  "name": "dricms",
+  "private": true,
+  "packageManager": "npm@11.12.1",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "npm run start -w apps/web",
+    "typecheck": "turbo run typecheck",
+    "db:create": "npm run db:create -w packages/db",
+    "db:migrate": "npm run db:migrate -w packages/db",
+    "db:seed": "npm run db:seed -w packages/db",
+    "db:seed-demo": "npm run db:seed-demo -w packages/db",
+    "db:setup": "npm run db:create && npm run db:migrate && npm run db:seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "turbo": "2.11.6",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

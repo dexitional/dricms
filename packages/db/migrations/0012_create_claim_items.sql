@@ -1,0 +1,14 @@
+CREATE TABLE claim_items (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  claim_id INT UNSIGNED NOT NULL,
+  sort SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  description VARCHAR(300) NOT NULL,
+  quantity DECIMAL(12,2) NOT NULL DEFAULT 1,
+  unit VARCHAR(40) NULL,
+  days DECIMAL(8,2) NOT NULL DEFAULT 1,
+  unit_cost DECIMAL(15,2) NOT NULL DEFAULT 0,
+  total DECIMAL(15,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_claim_items_claim (claim_id, sort),
+  CONSTRAINT fk_claim_items_claim FOREIGN KEY (claim_id) REFERENCES claims (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
