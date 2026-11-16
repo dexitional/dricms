@@ -24,6 +24,7 @@ export function OfficialPanel({
   endpoint,
   statusOptions,
   statusRoles,
+  receiptRoles = RECEIPT_ROLES,
   showVc,
   showCondition,
   onSaved,
@@ -32,13 +33,15 @@ export function OfficialPanel({
   endpoint: string
   statusOptions: Array<{ value: string; label: string }>
   statusRoles: Array<UserRole>
+  /** Who may record the receipt date; form requests by default. */
+  receiptRoles?: Array<UserRole>
   showVc?: boolean
   showCondition?: boolean
   onSaved: () => void
 }) {
   const user = useUser()
   const canStatus = statusRoles.includes(user.role)
-  const canReceipt = RECEIPT_ROLES.includes(user.role)
+  const canReceipt = receiptRoles.includes(user.role)
   const canDecide = DECISION_ROLES.includes(user.role)
   const pick = (r: Record<string, any>): Values => ({
     status: r.status ?? '',

@@ -1,5 +1,6 @@
 import { cn } from '@dric/ui'
 
+// A loading placeholder with a gentle shimmer (see .skeleton in styles.css).
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-lg bg-slate-100', className)} />
+  return <div aria-hidden className={cn('skeleton rounded-lg', className)} />
 }

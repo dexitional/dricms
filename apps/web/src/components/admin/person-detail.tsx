@@ -19,7 +19,9 @@ type Row = Record<string, any>
 
 export function PersonHeader({ person, kind }: { person: Row; kind: 'investigator' | 'personnel' }) {
   const isInv = kind === 'investigator'
-  const canManage = useCan(isInv ? 'investigators' : 'personnel', 'manage')
+  // Clerks may add and edit people but not delete them.
+  const canEdit = useCan(isInv ? 'investigators' : 'personnel', 'edit')
+  const canDelete = useCan(isInv ? 'investigators' : 'personnel', 'manage')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { confirm, dialog } = useConfirm()
@@ -50,7 +52,12 @@ export function PersonHeader({ person, kind }: { person: Row; kind: 'investigato
         back={{ to: isInv ? '/admin/investigators' : '/admin/personnel', label: isInv ? 'Investigators' : 'Personnel' }}
         title={
           <span className="flex items-center gap-4">
-            <Avatar name={personName(person)} className="size-14 text-base" />
+            <Avatar
+              name={personName(person)}
+              photoUrl={person.photoUrl}
+              staffNo={person.staffNo}
+              className="size-14 text-base"
+            />
             {personName(person)}
           </span>
         }
@@ -65,11 +72,13 @@ export function PersonHeader({ person, kind }: { person: Row; kind: 'investigato
           </>
         }
         actions={
-          canManage && (
+          canEdit && (
             <>
-              <Button variant="outline" onClick={remove}>
-                <Trash2 /> Delete
-              </Button>
+              {canDelete && (
+                <Button variant="outline" onClick={remove}>
+                  <Trash2 /> Delete
+                </Button>
+              )}
               <Button asChild>
                 {isInv ? (
                   <Link to="/admin/investigators/$investigatorId/edit" params={{ investigatorId: id }}>

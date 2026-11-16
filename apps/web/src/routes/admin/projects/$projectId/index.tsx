@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import {
   Banknote,
   CalendarRange,
@@ -14,9 +15,11 @@ import {
   Pencil,
   Plus,
   Printer,
+  Scale,
   Trash2,
   Users,
 } from 'lucide-react'
+import { cn } from '@dric/ui'
 import { toast } from 'sonner'
 import { api, errorMessage } from '#/lib/api-client'
 import { date, money, percent, period } from '#/lib/format'
@@ -27,7 +30,6 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardBody, CardHeader } from '#/components/ui/card'
 import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from '#/components/ui/dropdown'
-import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { DataTable } from '#/components/admin/data-table'
 import {
@@ -41,9 +43,16 @@ import {
   StatusBadge,
 } from '#/components/admin/page'
 import { useConfirm } from '#/components/admin/confirm'
+import { BalanceSheet, useLedger } from '#/components/admin/balance-sheet'
 import { useCan } from '#/components/admin/session'
+import { DetailSkeleton } from '#/components/admin/skeletons'
 
-export const Route = createFileRoute('/admin/projects/$projectId/')({ component: ProjectPage })
+const TABS = ['overview', 'funds', 'phases', 'finance', 'team', 'report'] as const
+
+export const Route = createFileRoute('/admin/projects/$projectId/')({
+  validateSearch: z.object({ tab: z.enum(TABS).optional() }),
+  component: ProjectPage,
+})
 
 type Row = Record<string, any>
 
@@ -56,16 +65,22 @@ function elapsed(start?: string | null, end?: string | null) {
 
 function ProjectPage() {
   const { projectId } = Route.useParams()
+  const { tab } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const canManage = useCan('projects', 'manage')
   const canClaim = useCan('claims', 'manage')
+  // Clerks don't see the money side of a project: funds, claims or payments.
+  const seesFunds = useCan('remittances')
+  const seesClaims = useCan('claims')
+  const seesPayments = useCan('payments')
   const { confirm, dialog } = useConfirm()
   const { data: p, isLoading } = useQuery({
     queryKey: ['projects', projectId],
     queryFn: () => api.get<Row>(`/projects/${projectId}`),
   })
-  if (isLoading || !p) return <Skeleton className="h-[32rem]" />
+  const ledger = useLedger(projectId, seesFunds)
+  if (isLoading || !p) return <DetailSkeleton metrics={6} />
 
   const phases = p.phases as Array<Row>
   const claims = p.claims as Array<Row>
@@ -82,7 +97,7 @@ function ProjectPage() {
     confirm({
       title: 'Delete this project?',
       description:
-        'Its phases, activities, claims and kick-off checklist are deleted too. Projects with payments cannot be deleted.',
+        'Its phases, activities, claims and kick-off checklist are deleted too. Projects that have received or paid out funds cannot be deleted.',
       confirmLabel: 'Delete project',
       danger: true,
       onConfirm: async () => {
@@ -166,12 +181,66 @@ function ProjectPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={cn(
+          'mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3',
+          seesFunds && seesClaims ? 'xl:grid-cols-6' : seesFunds ? 'xl:grid-cols-5' : 'xl:grid-cols-3',
+        )}
+      >
         <Metric
+          soft
           label="Total award"
           value={money(p.totalFunding, p.currency)}
           sub={p.funderName ?? 'No funder linked'}
         />
+        {seesFunds && (
+          <>
+            <Metric
+              soft
+              label="Received from funder"
+              value={ledger.data ? money(ledger.data.summary.received, p.currency) : '…'}
+              sub={
+                ledger.data
+                  ? `${percent(ledger.data.summary.received, p.totalFunding)}% of the award received`
+                  : 'Remittances from the funder'
+              }
+              progress={ledger.data ? percent(ledger.data.summary.received, p.totalFunding) : undefined}
+            />
+            <Link
+              to="/admin/projects/$projectId"
+              params={{ projectId }}
+              search={{ tab: 'funds' }}
+              className={cn(
+                'lift rounded-2xl border p-4',
+                (ledger.data?.summary.balance ?? 0) < 0
+                  ? 'border-red-200 bg-secondary/60'
+                  : 'border-primary bg-primary text-white',
+              )}
+            >
+              <p className={cn('eyebrow', (ledger.data?.summary.balance ?? 0) >= 0 && 'text-white/60')}>
+                Closing balance
+              </p>
+              <p
+                className={cn(
+                  'mt-1.5 font-mono text-lg font-semibold tracking-tight tabular-nums',
+                  (ledger.data?.summary.balance ?? 0) < 0 && 'text-destructive',
+                )}
+              >
+                {ledger.data ? money(ledger.data.summary.balance, p.currency) : '…'}
+              </p>
+              <p
+                className={cn(
+                  'mt-1.5 text-xs',
+                  (ledger.data?.summary.balance ?? 0) >= 0 ? 'text-white/65' : 'text-secondary-foreground',
+                )}
+              >
+                {ledger.data
+                  ? `${money(ledger.data.summary.received, p.currency, { compact: true })} received − ${money(ledger.data.summary.disbursed, p.currency, { compact: true })} paid out`
+                  : 'Funds received less tranches paid'}
+              </p>
+            </Link>
+          </>
+        )}
         <Metric
           label="Phase budgets"
           value={money(budgeted, p.currency)}
@@ -185,26 +254,40 @@ function ProjectPage() {
           progress={percent(spent, budgeted)}
           tone={percent(spent, budgeted) > 95 ? 'danger' : 'primary'}
         />
-        <Metric
-          label="Disbursed to team"
-          value={money(paid, claimCurrency)}
-          sub={`of ${money(claimed, claimCurrency)} claimed`}
-          progress={percent(paid, claimed)}
-          tone="success"
-        />
+        {seesClaims && (
+          <Metric
+            label="Disbursed to team"
+            value={money(paid, claimCurrency)}
+            sub={`of ${money(claimed, claimCurrency)} claimed`}
+            progress={percent(paid, claimed)}
+            tone="success"
+          />
+        )}
       </div>
 
-      <Tabs defaultValue="overview">
+      <Tabs
+        defaultValue={
+          (tab === 'funds' && !seesFunds) || (tab === 'finance' && !seesClaims) ? 'overview' : (tab ?? 'overview')
+        }
+        key={tab}
+      >
         <TabsList className="mb-5">
           <TabsTrigger value="overview">
             <FolderOpen /> Overview
           </TabsTrigger>
+          {seesFunds && (
+            <TabsTrigger value="funds">
+              <Scale /> Funds & balance
+            </TabsTrigger>
+          )}
           <TabsTrigger value="phases">
             <Layers /> Phases <Count n={phases.length} />
           </TabsTrigger>
-          <TabsTrigger value="finance">
-            <Banknote /> Claims & payments <Count n={claims.length} />
-          </TabsTrigger>
+          {seesClaims && (
+            <TabsTrigger value="finance">
+              <Banknote /> {seesPayments ? 'Claims & payments' : 'Claims'} <Count n={claims.length} />
+            </TabsTrigger>
+          )}
           <TabsTrigger value="team">
             <Users /> Team <Count n={(p.coInvestigators?.length ?? 0) + (p.piId ? 1 : 0)} />
           </TabsTrigger>
@@ -312,6 +395,8 @@ function ProjectPage() {
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="funds">{seesFunds && <BalanceSheet projectId={projectId} />}</TabsContent>
 
         <TabsContent value="phases">
           <div className="mb-4 flex items-center justify-between">
@@ -437,51 +522,53 @@ function ProjectPage() {
               ]}
             />
           </Card>
-          <Card>
-            <CardHeader title="Tranche payments" />
-            <DataTable
-              className="rounded-none border-0"
-              rows={p.payments}
-              empty={<EmptyState icon={Banknote} title="No payments yet" />}
-              columns={[
-                {
-                  header: 'Reference',
-                  cell: (m: Row) => <span className="font-mono font-semibold">{m.reference}</span>,
-                },
-                { header: 'Claim', cell: (m: Row) => <span className="font-mono text-xs">{m.claimReference}</span> },
-                { header: 'Date issued', cell: (m: Row) => date(m.paidAt) },
-                {
-                  header: 'Amount',
-                  align: 'right',
-                  cell: (m: Row) => (
-                    <span className="text-right">
-                      <Money amount={m.amount} currency={m.currency} className="block font-semibold" />
-                      {m.currency !== m.claimCurrency && (
-                        <span className="text-[0.7rem] text-muted-foreground">
-                          ≈ {money(m.amount * m.conversionRate, m.claimCurrency)}
-                        </span>
-                      )}
-                    </span>
-                  ),
-                },
-                {
-                  header: '',
-                  align: 'right',
-                  cell: (m: Row) => (
-                    <a
-                      href={`/print/payment/${m.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="relative z-[1] inline-flex rounded-full p-1.5 text-muted-foreground hover:bg-accent"
-                      aria-label="Print voucher"
-                    >
-                      <Printer className="size-4" />
-                    </a>
-                  ),
-                },
-              ]}
-            />
-          </Card>
+          {seesPayments && (
+            <Card>
+              <CardHeader title="Tranche payments" />
+              <DataTable
+                className="rounded-none border-0"
+                rows={p.payments}
+                empty={<EmptyState icon={Banknote} title="No payments yet" />}
+                columns={[
+                  {
+                    header: 'Reference',
+                    cell: (m: Row) => <span className="font-mono font-semibold">{m.reference}</span>,
+                  },
+                  { header: 'Claim', cell: (m: Row) => <span className="font-mono text-xs">{m.claimReference}</span> },
+                  { header: 'Date issued', cell: (m: Row) => date(m.paidAt) },
+                  {
+                    header: 'Amount',
+                    align: 'right',
+                    cell: (m: Row) => (
+                      <span className="text-right">
+                        <Money amount={m.amount} currency={m.currency} className="block font-semibold" />
+                        {m.currency !== m.claimCurrency && (
+                          <span className="text-[0.7rem] text-muted-foreground">
+                            ≈ {money(m.amount * m.conversionRate, m.claimCurrency)}
+                          </span>
+                        )}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: '',
+                    align: 'right',
+                    cell: (m: Row) => (
+                      <a
+                        href={`/print/payment/${m.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="relative z-[1] inline-flex rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                        aria-label="Print voucher"
+                      >
+                        <Printer className="size-4" />
+                      </a>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="team">
@@ -493,6 +580,8 @@ function ProjectPage() {
                 role="Principal investigator"
                 email={p.piEmail}
                 sub={p.piDepartment}
+                photoUrl={p.piPhotoUrl}
+                staffNo={p.piStaffNo}
                 highlight
               />
             ) : (
@@ -506,6 +595,8 @@ function ProjectPage() {
                 role="Co-investigator"
                 email={c.email}
                 sub={c.department}
+                photoUrl={c.photoUrl}
+                staffNo={c.staffNo}
               />
             ))}
           </div>
@@ -558,15 +649,18 @@ function Metric({
   sub,
   progress,
   tone = 'primary',
+  soft = false,
 }: {
   label: string
   value: string
   sub: string
   progress?: number
   tone?: 'primary' | 'success' | 'danger'
+  // A light blush card, for the award and the funds received.
+  soft?: boolean
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-4">
+    <div className={cn('rounded-2xl border p-4', soft ? 'border-secondary-strong/70 bg-secondary-soft' : 'bg-white')}>
       <p className="eyebrow">{label}</p>
       <p className="mt-1.5 font-mono text-lg font-semibold tracking-tight tabular-nums">{value}</p>
       {progress !== undefined && <ProgressBar value={progress} tone={tone} className="mt-2" />}
@@ -582,6 +676,8 @@ function PersonCard({
   email,
   sub,
   highlight,
+  photoUrl,
+  staffNo,
 }: {
   id: number
   name: string
@@ -589,14 +685,30 @@ function PersonCard({
   email?: string
   sub?: string
   highlight?: boolean
+  photoUrl?: string | null
+  staffNo?: string | null
 }) {
+  // Investigators can't open other people's records, so their card isn't a link.
+  const linked = useCan('investigators')
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
+    linked ? (
+      <Link
+        to="/admin/investigators/$investigatorId"
+        params={{ investigatorId: String(id) }}
+        className={`lift flex items-start gap-3 rounded-2xl border p-4 ${highlight ? 'border-primary/30 bg-primary-soft/50' : 'bg-white'}`}
+      >
+        {children}
+      </Link>
+    ) : (
+      <div
+        className={`flex items-start gap-3 rounded-2xl border p-4 ${highlight ? 'border-primary/30 bg-primary-soft/50' : 'bg-white'}`}
+      >
+        {children}
+      </div>
+    )
   return (
-    <Link
-      to="/admin/investigators/$investigatorId"
-      params={{ investigatorId: String(id) }}
-      className={`lift flex items-start gap-3 rounded-2xl border p-4 ${highlight ? 'border-primary/30 bg-primary-soft/50' : 'bg-white'}`}
-    >
-      <Avatar name={name} className="size-11" />
+    <Wrapper>
+      <Avatar name={name} photoUrl={photoUrl} staffNo={staffNo} className="size-11" />
       <div className="min-w-0">
         <p className="eyebrow">{role}</p>
         <p className="truncate font-semibold text-slate-900">{name}</p>
@@ -607,7 +719,7 @@ function PersonCard({
           </p>
         )}
       </div>
-    </Link>
+    </Wrapper>
   )
 }
 

@@ -5,17 +5,18 @@ import { toast } from 'sonner'
 import { CLAIM_STATUSES } from '@dric/db/types'
 import { api, errorMessage } from '#/lib/api-client'
 import { date, money, num, percent, personName } from '#/lib/format'
-import { CLAIM_STATUS_LABELS } from '#/lib/labels'
-import { CLAIM_STATUS_ROLES } from '#/lib/permissions'
+import { CLAIM_STATUS_LABELS, RETIREMENT_STATE_LABELS } from '#/lib/labels'
+import { CLAIM_RECEIPT_ROLES, CLAIM_STATUS_ROLES } from '#/lib/permissions'
 import { amountInWords } from '#/lib/words'
 import { Button } from '#/components/ui/button'
 import { Card, CardBody, CardHeader } from '#/components/ui/card'
-import { Skeleton } from '#/components/ui/skeleton'
 import { DataTable } from '#/components/admin/data-table'
 import { DetailList, EmptyState, Money, PageHeader, ProgressBar, StatusBadge } from '#/components/admin/page'
 import { OfficialPanel } from '#/components/admin/official-panel'
+import { AttachmentList } from '#/components/admin/file-upload'
 import { useConfirm } from '#/components/admin/confirm'
 import { useCan, useUser } from '#/components/admin/session'
+import { DetailSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/claims/$claimId/')({ component: ClaimPage })
 
@@ -28,9 +29,10 @@ function ClaimPage() {
   const user = useUser()
   const canPay = useCan('payments', 'manage')
   const canManage = useCan('claims', 'manage')
+  const canInvestigators = useCan('investigators')
   const { confirm, dialog } = useConfirm()
   const { data: c } = useQuery({ queryKey: ['claims', claimId], queryFn: () => api.get<Row>(`/claims/${claimId}`) })
-  if (!c) return <Skeleton className="h-[30rem]" />
+  if (!c) return <DetailSkeleton metrics={3} />
 
   const hasPayments = (c.payments as Array<Row>).length > 0
   const own = user.role !== 'investigator' || c.investigatorId === user.investigatorId
@@ -190,6 +192,18 @@ function ClaimPage() {
           </Card>
           <Card>
             <CardHeader
+              title="Supporting documents"
+              description="Invoices, quotations and other documents submitted with the request"
+            />
+            <CardBody>
+              <AttachmentList
+                files={c.attachments}
+                empty={editable ? 'None yet. Edit the claim to upload documents.' : 'No documents were attached.'}
+              />
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader
               title="Tranche payments"
               action={
                 canPay &&
@@ -207,9 +221,14 @@ function ClaimPage() {
             <DataTable
               className="rounded-none border-0"
               rows={c.payments}
+              rowLink={(p) => ({ to: '/admin/payments/$paymentId', params: { paymentId: String(p.id) } })}
               empty={<EmptyState icon={Banknote} title="No tranches paid yet" className="py-8" />}
               columns={[
                 { header: 'Tranche', cell: (p: Row) => <span className="font-mono font-semibold">{p.reference}</span> },
+                {
+                  header: 'Retirement',
+                  cell: (p: Row) => <StatusBadge status={p.retirement} label={RETIREMENT_STATE_LABELS[p.retirement]} />,
+                },
                 { header: 'Description', cell: (p: Row) => <span className="text-xs">{p.description ?? '—'}</span> },
                 { header: 'Date issued', cell: (p: Row) => date(p.paidAt) },
                 {
@@ -263,6 +282,7 @@ function ClaimPage() {
             endpoint={`/claims/${claimId}/official`}
             statusOptions={CLAIM_STATUSES.map((s) => ({ value: s, label: CLAIM_STATUS_LABELS[s] }))}
             statusRoles={CLAIM_STATUS_ROLES}
+            receiptRoles={CLAIM_RECEIPT_ROLES}
             showVc
             onSaved={() => void refresh()}
           />
@@ -274,7 +294,7 @@ function ClaimPage() {
                 items={[
                   [
                     'Name',
-                    c.investigatorId ? (
+                    c.investigatorId && canInvestigators ? (
                       <Link
                         key="n"
                         to="/admin/investigators/$investigatorId"
@@ -283,7 +303,9 @@ function ClaimPage() {
                       >
                         {[c.reqTitle, requester].filter(Boolean).join(' ')}
                       </Link>
-                    ) : null,
+                    ) : (
+                      [c.reqTitle, requester].filter(Boolean).join(' ') || null
+                    ),
                   ],
                   ['College', c.reqCollege],
                   ['Faculty / School', c.reqFaculty],

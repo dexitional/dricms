@@ -40,3 +40,6 @@ export const CURRENCIES = [
   'KES',
 ] as const
 export type Currency = (typeof CURRENCIES)[number]
+
+export const RETIREMENT_STATUSES = ['SUBMITTED', 'ACCEPTED', 'REJECTED'] as const
+export type RetirementStatus = (typeof RETIREMENT_STATUSES)[number]

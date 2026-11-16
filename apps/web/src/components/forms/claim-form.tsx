@@ -16,6 +16,8 @@ import { Button } from '#/components/ui/button'
 import { Input, NativeSelect, Textarea } from '#/components/ui/input'
 import { Field, FormActions, FormSection, errorAt } from '#/components/admin/form'
 import { Combobox } from '#/components/admin/combobox'
+import { AttachmentsField } from '#/components/admin/file-upload'
+import type { UploadedFile } from '#/components/admin/file-upload'
 import { CURRENCY_OPTIONS, useLookup } from '#/components/admin/lookups'
 import { useUser } from '#/components/admin/session'
 
@@ -61,6 +63,7 @@ export function ClaimForm({
       currency: 'GHS',
       amount: '' as never,
       items: [],
+      attachments: [],
       phaseId: phaseId ?? ('' as never),
       investigatorId: null,
       signedName: isInvestigator ? user.fullName : '',
@@ -80,6 +83,7 @@ export function ClaimForm({
       currency: claim.currency,
       signedName: claim.signedName ?? '',
       signedAt: claim.signedAt ?? '',
+      attachments: claim.attachments ?? [],
       items: (claim.items ?? []).map((i: Record<string, any>) => ({
         description: i.description,
         quantity: i.quantity,
@@ -318,6 +322,27 @@ export function ClaimForm({
 
       <FormSection
         index={3}
+        title="Supporting documents"
+        description="Invoices, quotations, pro-forma invoices and anything else that supports the request."
+      >
+        <div className="sm:col-span-2">
+          <Controller
+            control={control}
+            name="attachments"
+            render={({ field }) => (
+              <AttachmentsField
+                endpoint="/files"
+                max={20}
+                value={(field.value ?? []) as Array<UploadedFile>}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        index={4}
         title="Declaration"
         description="Type the name of the principal investigator to sign the request."
       >

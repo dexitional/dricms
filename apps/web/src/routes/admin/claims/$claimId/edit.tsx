@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '#/lib/api-client'
-import { Skeleton } from '#/components/ui/skeleton'
 import { PageHeader } from '#/components/admin/page'
 import { ClaimForm } from '#/components/forms/claim-form'
+import { FormSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/claims/$claimId/edit')({ component: EditClaim })
 
@@ -19,7 +19,7 @@ function EditClaim() {
         back={{ to: '/admin/claims/$claimId', label: data?.reference ?? 'Claim', params: { claimId } }}
         title="Edit claim"
       />
-      {data ? <ClaimForm claim={data} /> : <Skeleton className="h-96" />}
+      {data ? <ClaimForm claim={data} /> : <FormSkeleton />}
     </>
   )
 }

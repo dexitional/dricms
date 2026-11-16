@@ -1,8 +1,10 @@
 // GET /api/dashboard — staff overview, or an investigator's own portfolio.
 import { Hono } from 'hono'
 import type { SessionUser } from '#/server/session-core'
+import { AUDIT_ALL_ROLES, can } from '#/lib/permissions'
 import { requirePermission } from '../lib/auth'
 import { one, rows, scalar } from '../lib/db'
+import { PROJECT_DISBURSED, PROJECT_RECEIVED, RETIRED, RETIRE_PENDING } from '../lib/ledger'
 import { projectScope } from '../lib/scope'
 
 const NAME = `TRIM(CONCAT_WS(' ', i.title, i.first_name, i.last_name))`
@@ -13,7 +15,10 @@ async function mainCurrency(sql: string, params: Array<unknown> = []) {
   return (await scalar<string | null>(sql, params)) ?? 'USD'
 }
 
-async function staffDashboard() {
+async function staffDashboard(user: SessionUser) {
+  // Accountants don't handle form requests and see only their own activity.
+  const seesRequests = can(user.role, 'requests')
+  const ownActivity = can(user.role, 'audit') && !AUDIT_ALL_ROLES.includes(user.role) ? 'WHERE a.user_id = ?' : ''
   const fundingCurrency = await mainCurrency(
     'SELECT currency FROM projects GROUP BY currency ORDER BY COUNT(*) DESC, SUM(total_funding) DESC LIMIT 1',
   )
@@ -34,6 +39,8 @@ async function staffDashboard() {
     recentRequests,
     activity,
     topProjects,
+    balances,
+    retirement,
   ] = await Promise.all([
     one(
       `SELECT (SELECT COUNT(*) FROM projects) AS projects,
@@ -71,7 +78,7 @@ async function staffDashboard() {
           GROUP BY month ORDER BY month`,
       [claimCurrency],
     ),
-    rows('SELECT type, COUNT(*) AS count FROM requests GROUP BY type'),
+    seesRequests ? rows('SELECT type, COUNT(*) AS count FROM requests GROUP BY type') : [],
     rows(
       `SELECT p.id, p.code, p.title, p.end_date, DATEDIFF(p.end_date, CURDATE()) AS days_left, ${NAME} AS pi_name
            FROM projects p LEFT JOIN investigators i ON i.id = p.pi_id
@@ -84,13 +91,16 @@ async function staffDashboard() {
            LEFT JOIN investigators i ON i.id = cl.investigator_id
           ORDER BY cl.created_at DESC LIMIT 6`,
     ),
-    rows(
-      `SELECT id, reference, type, status, project_title, first_name, surname, created_at
-           FROM requests ORDER BY created_at DESC LIMIT 6`,
-    ),
+    seesRequests
+      ? rows(
+          `SELECT id, reference, type, status, project_title, first_name, surname, created_at
+             FROM requests ORDER BY created_at DESC LIMIT 6`,
+        )
+      : [],
     rows(
       `SELECT a.id, a.action, a.entity, a.entity_id, a.summary, a.created_at, u.full_name AS user_name
-           FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 8`,
+           FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id ${ownActivity} ORDER BY a.id DESC LIMIT 8`,
+      ownActivity ? [user.id] : [],
     ),
     rows(
       `SELECT p.id, p.code, p.title, p.total_funding, p.currency,
@@ -100,37 +110,71 @@ async function staffDashboard() {
           ORDER BY p.total_funding DESC LIMIT 5`,
       [fundingCurrency],
     ),
+    // Closing balances on the projects holding the most funder money.
+    rows(
+      `SELECT * FROM (
+         SELECT p.id, p.code, p.title, p.currency, p.total_funding, ${PROJECT_RECEIVED} AS received,
+                ${PROJECT_DISBURSED} AS disbursed
+           FROM projects p WHERE p.status = 'ONGOING') x
+        WHERE x.received > 0 ORDER BY x.received DESC LIMIT 6`,
+    ),
+    one(
+      `SELECT COUNT(*) AS tranches,
+              SUM(${RETIRED} >= pm.amount - 0.01) AS retired,
+              SUM(${RETIRED} < pm.amount - 0.01 AND ${RETIRED} + ${RETIRE_PENDING} > 0) AS partial,
+              SUM(${RETIRED} + ${RETIRE_PENDING} = 0) AS unretired,
+              (SELECT COUNT(*) FROM retirements WHERE status = 'SUBMITTED') AS awaiting_review
+         FROM payments pm`,
+    ),
   ])
+  // Each role sees only the figures its permissions cover: clerks get no
+  // claims, payments or fund balances; roles without the people registers
+  // get no head counts.
+  const sees = {
+    claims: can(user.role, 'claims'),
+    payments: can(user.role, 'payments'),
+    funds: can(user.role, 'remittances'),
+    retirements: can(user.role, 'retirements'),
+    people: can(user.role, 'investigators'),
+  }
+  const k: Record<string, unknown> = { ...kpis }
+  if (!sees.claims) (delete k.openClaims, delete k.approvedClaims)
+  if (!sees.payments) (delete k.disbursed, delete k.disbursedThisYear)
+  if (!sees.people) (delete k.investigators, delete k.personnel)
+  if (!seesRequests) delete k.openRequests
   return {
     kind: 'staff' as const,
     fundingCurrency,
     claimCurrency,
-    kpis,
+    kpis: k,
     fundingByCurrency,
     byFunder,
     byStatus,
     byType,
-    claimsByStatus,
-    paymentsByMonth,
+    claimsByStatus: sees.claims ? claimsByStatus : [],
+    paymentsByMonth: sees.payments ? paymentsByMonth : [],
     requestsByType,
     endingSoon,
-    recentClaims,
+    recentClaims: sees.claims ? recentClaims : [],
     recentRequests,
     activity,
     topProjects,
+    balances: sees.funds ? balances : [],
+    retirement: sees.retirements ? retirement : null,
   }
 }
 
 async function investigatorDashboard(user: SessionUser) {
   const scope = projectScope(user)
   const inv = user.investigatorId ?? 0
-  const [projects, claims, payments, totals, requests] = await Promise.all([
+  const [projects, claims, payments, totals, requests, funders] = await Promise.all([
     rows(
       `SELECT p.id, p.code, p.title, p.status, p.total_funding, p.currency, p.start_date, p.end_date,
               IF(p.pi_id = ?, 'PI', 'Co-I') AS role, f.name AS funder_name,
               (SELECT COUNT(*) FROM phases ph WHERE ph.project_id = p.id) AS phases_count,
               COALESCE((SELECT SUM(ph.spent) FROM phases ph WHERE ph.project_id = p.id), 0) AS spent,
-              COALESCE((SELECT SUM(ph.budget) FROM phases ph WHERE ph.project_id = p.id), 0) AS budgeted
+              COALESCE((SELECT SUM(ph.budget) FROM phases ph WHERE ph.project_id = p.id), 0) AS budgeted,
+              ${PROJECT_RECEIVED} AS received, ${PROJECT_DISBURSED} AS disbursed
          FROM projects p LEFT JOIN funders f ON f.id = p.funder_id
         WHERE ${scope.sql} ORDER BY p.status = 'ONGOING' DESC, p.end_date`,
       [inv, ...scope.params],
@@ -158,11 +202,20 @@ async function investigatorDashboard(user: SessionUser) {
         WHERE investigator_id = ? OR email = ? ORDER BY created_at DESC LIMIT 6`,
       [inv, user.email],
     ),
+    // The funders of the investigator's own projects (view only).
+    rows(
+      `SELECT f.id, f.name, f.logo_url, co.name AS country, COUNT(*) AS projects,
+              SUM(p.status = 'ONGOING') AS ongoing
+         FROM projects p JOIN funders f ON f.id = p.funder_id LEFT JOIN countries co ON co.id = f.country_id
+        WHERE ${scope.sql}
+        GROUP BY f.id, f.name, f.logo_url, co.name ORDER BY projects DESC, f.name`,
+      scope.params,
+    ),
   ])
-  return { kind: 'investigator' as const, projects, claims, payments, totals, requests }
+  return { kind: 'investigator' as const, projects, claims, payments, totals, requests, funders }
 }
 
 export const dashboardRoute = new Hono().get('/', requirePermission('dashboard', 'view'), async (c) => {
   const user = c.get('user')
-  return c.json(user.role === 'investigator' ? await investigatorDashboard(user) : await staffDashboard())
+  return c.json(user.role === 'investigator' ? await investigatorDashboard(user) : await staffDashboard(user))
 })

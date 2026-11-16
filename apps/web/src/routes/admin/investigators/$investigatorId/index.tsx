@@ -6,10 +6,11 @@ import { date } from '#/lib/format'
 import { CLAIM_STATUS_LABELS, PROJECT_STATUS_LABELS } from '#/lib/labels'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardBody, CardHeader } from '#/components/ui/card'
-import { Skeleton } from '#/components/ui/skeleton'
 import { DataTable } from '#/components/admin/data-table'
 import { DetailList, EmptyState, Money, StatusBadge } from '#/components/admin/page'
 import { PersonHeader, PersonSideCards, PortalAccountCard } from '#/components/admin/person-detail'
+import { PersonSkeleton } from '#/components/admin/skeletons'
+import { useCan } from '#/components/admin/session'
 
 export const Route = createFileRoute('/admin/investigators/$investigatorId/')({ component: InvestigatorPage })
 
@@ -17,11 +18,14 @@ type Row = Record<string, any>
 
 function InvestigatorPage() {
   const { investigatorId } = Route.useParams()
+  const seesClaims = useCan('claims')
+  // Portal accounts are created by administrators only.
+  const managesAccounts = useCan('investigators', 'manage')
   const { data: inv } = useQuery({
     queryKey: ['investigator', investigatorId],
     queryFn: () => api.get<Row>(`/investigators/${investigatorId}`),
   })
-  if (!inv) return <Skeleton className="h-96" />
+  if (!inv) return <PersonSkeleton />
   return (
     <>
       <PersonHeader person={inv} kind="investigator" />
@@ -84,45 +88,47 @@ function InvestigatorPage() {
               ]}
             />
           </Card>
-          <Card>
-            <CardHeader title="Recent claims" />
-            <DataTable
-              className="rounded-none border-0"
-              rows={inv.claims}
-              rowLink={(c) => ({ to: '/admin/claims/$claimId', params: { claimId: String(c.id) } })}
-              empty={<EmptyState icon={HandCoins} title="No claims yet" />}
-              columns={[
-                {
-                  header: 'Claim',
-                  cell: (c: Row) => (
-                    <span>
-                      <span className="block font-semibold">{c.purpose}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {c.reference} · {c.projectTitle}
+          {seesClaims && (
+            <Card>
+              <CardHeader title="Recent claims" />
+              <DataTable
+                className="rounded-none border-0"
+                rows={inv.claims}
+                rowLink={(c) => ({ to: '/admin/claims/$claimId', params: { claimId: String(c.id) } })}
+                empty={<EmptyState icon={HandCoins} title="No claims yet" />}
+                columns={[
+                  {
+                    header: 'Claim',
+                    cell: (c: Row) => (
+                      <span>
+                        <span className="block font-semibold">{c.purpose}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {c.reference} · {c.projectTitle}
+                        </span>
                       </span>
-                    </span>
-                  ),
-                },
-                {
-                  header: 'Status',
-                  cell: (c: Row) => (
-                    <StatusBadge
-                      status={c.status}
-                      label={CLAIM_STATUS_LABELS[c.status as keyof typeof CLAIM_STATUS_LABELS]}
-                    />
-                  ),
-                },
-                {
-                  header: 'Amount',
-                  align: 'right',
-                  cell: (c: Row) => <Money amount={c.amount} currency={c.currency} />,
-                },
-              ]}
-            />
-          </Card>
+                    ),
+                  },
+                  {
+                    header: 'Status',
+                    cell: (c: Row) => (
+                      <StatusBadge
+                        status={c.status}
+                        label={CLAIM_STATUS_LABELS[c.status as keyof typeof CLAIM_STATUS_LABELS]}
+                      />
+                    ),
+                  },
+                  {
+                    header: 'Amount',
+                    align: 'right',
+                    cell: (c: Row) => <Money amount={c.amount} currency={c.currency} />,
+                  },
+                ]}
+              />
+            </Card>
+          )}
         </div>
         <div className="space-y-4">
-          <PortalAccountCard investigator={inv} />
+          {managesAccounts && <PortalAccountCard investigator={inv} />}
           <PersonSideCards person={inv} />
         </div>
       </div>

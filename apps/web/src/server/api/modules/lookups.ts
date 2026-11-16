@@ -1,7 +1,7 @@
 // Options for the searchable dropdowns in the admin forms.
 //   GET /api/lookups/countries | funders | investigators | personnel | phases | claims | projects
 import { Hono } from 'hono'
-import { requireUser } from '../lib/auth'
+import { requirePermission, requireUser } from '../lib/auth'
 import { rows } from '../lib/db'
 import { projectScope } from '../lib/scope'
 
@@ -36,7 +36,8 @@ export const lookupsRoute = new Hono()
     const scope = projectScope(c.get('user'))
     return c.json(
       await rows(
-        `SELECT p.id AS value, p.title AS label, p.code AS hint FROM projects p WHERE ${scope.sql} ORDER BY p.title`,
+        `SELECT p.id AS value, p.title AS label, CONCAT_WS(' · ', p.code, f.name) AS hint, p.currency, p.funder_id
+           FROM projects p LEFT JOIN funders f ON f.id = p.funder_id WHERE ${scope.sql} ORDER BY p.title`,
         scope.params,
       ),
     )
@@ -55,14 +56,15 @@ export const lookupsRoute = new Hono()
       ),
     )
   })
-  // Approved claims still owed money: "<phase> — <project> — <PI>".
-  .get('/claims', async (c) =>
+  // Approved claims still owed money: "<phase> — <project> — <PI>". Only for
+  // those who record tranche payments.
+  .get('/claims', requirePermission('payments', 'manage'), async (c) =>
     c.json(
       await rows(
         `SELECT cl.id AS value,
                 CONCAT(cl.reference, ' · Phase ', ph.phase_no, ': ', ph.title) AS label,
                 CONCAT(p.title, ' — ', COALESCE(TRIM(CONCAT_WS(' ', i.title, i.first_name, i.last_name)), 'No PI')) AS hint,
-                cl.amount, cl.currency,
+                cl.amount, cl.currency, p.currency AS project_currency,
                 cl.amount - COALESCE((SELECT SUM(pm.amount * pm.conversion_rate) FROM payments pm WHERE pm.claim_id = cl.id), 0) AS balance
            FROM claims cl
            JOIN phases ph ON ph.id = cl.phase_id

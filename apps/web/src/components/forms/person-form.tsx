@@ -13,6 +13,8 @@ import { Button } from '#/components/ui/button'
 import { Input, NativeSelect } from '#/components/ui/input'
 import { Switch } from '#/components/ui/switch'
 import { Field, FormActions, FormSection } from '#/components/admin/form'
+import { PhotoField } from '#/components/admin/file-upload'
+import { Avatar } from '#/components/admin/page'
 
 const BASE_KEYS = [
   'title',
@@ -23,6 +25,7 @@ const BASE_KEYS = [
   'phone',
   'email',
   'staffNo',
+  'photoUrl',
   'department',
   'address',
   'ghanaCardNo',
@@ -45,6 +48,7 @@ export function PersonForm({ kind, person }: { kind: 'investigator' | 'personnel
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isDirty },
   } = useForm<any>({
     resolver: zodResolver(isInv ? investigatorSchema : personnelSchema),
@@ -78,6 +82,28 @@ export function PersonForm({ kind, person }: { kind: 'investigator' | 'personnel
             : 'Personnel are assigned to manage activities within project phases.'
         }
       >
+        <div className="sm:col-span-2">
+          <Field label="Photo" error={err('photoUrl')}>
+            <Controller
+              control={control}
+              name="photoUrl"
+              render={({ field }) => (
+                <PhotoField
+                  value={field.value || null}
+                  onChange={(url) => field.onChange(url ?? '')}
+                  preview={
+                    <Avatar
+                      name={[watch('firstName'), watch('lastName')].filter(Boolean).join(' ') || '?'}
+                      photoUrl={field.value || null}
+                      staffNo={watch('staffNo')}
+                      className="size-20 text-xl"
+                    />
+                  }
+                />
+              )}
+            />
+          </Field>
+        </div>
         <Field label="Title" error={err('title')}>
           <NativeSelect {...register('title')}>
             <option value="">—</option>

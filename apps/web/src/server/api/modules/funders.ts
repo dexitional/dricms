@@ -1,53 +1,93 @@
 import { Hono } from 'hono'
 import { funderSchema } from '#/lib/schemas'
+import { FUNDER_CONTACT_ROLES, can } from '#/lib/permissions'
+import type { SessionUser } from '#/server/session-core'
 import { requirePermission } from '../lib/auth'
 import { audit } from '../lib/audit'
 import { exec, insert, like, one, paging, parseId, rows, scalar, update } from '../lib/db'
 import { notFound } from '../lib/errors'
+import { PROJECT_DISBURSED, PROJECT_RECEIVED } from '../lib/ledger'
 import { decryptSecret, encryptSecret } from '../lib/secrets'
+import { funderScope, projectScope } from '../lib/scope'
 import { validate } from '../lib/validate'
 
-const PROJECTS_COUNT = '(SELECT COUNT(*) FROM projects p WHERE p.funder_id = f.id)'
+// Contact details and the grant-portal sign-in are left out for roles that
+// shouldn't see them (accountants, investigators).
+const PRIVATE_FIELDS = ['email', 'phone', 'address', 'portalUrl', 'portalUsername', 'hasPortalPassword'] as const
+function forRole<T extends Record<string, any>>(user: SessionUser, funder: T): T {
+  if (FUNDER_CONTACT_ROLES.includes(user.role)) return funder
+  const copy: Record<string, any> = { ...funder }
+  for (const key of PRIVATE_FIELDS) delete copy[key]
+  return copy as T
+}
 
 export const fundersRoute = new Hono()
   .get('/', requirePermission('funders', 'view'), async (c) => {
     const q = c.req.query()
     const { page, pageSize, limit, offset } = paging(q)
-    const where: Array<string> = ['1 = 1']
-    const params: Array<unknown> = []
+    const user = c.get('user')
+    const scope = funderScope(user)
+    const inScope = projectScope(user)
+    const where: Array<string> = [scope.sql]
+    const params: Array<unknown> = [...scope.params]
     if (q.q) {
-      where.push('(f.name LIKE ? OR f.email LIKE ? OR f.location LIKE ? OR co.name LIKE ?)')
-      params.push(like(q.q), like(q.q), like(q.q), like(q.q))
+      // Email is only searchable by those allowed to see it.
+      const byEmail = FUNDER_CONTACT_ROLES.includes(user.role)
+      where.push(`(f.name LIKE ? ${byEmail ? 'OR f.email LIKE ?' : ''} OR f.location LIKE ? OR co.name LIKE ?)`)
+      params.push(like(q.q), ...(byEmail ? [like(q.q)] : []), like(q.q), like(q.q))
     }
     const from = `FROM funders f LEFT JOIN countries co ON co.id = f.country_id WHERE ${where.join(' AND ')}`
     const [data, total] = await Promise.all([
       rows(
         `SELECT f.id, f.name, f.location, f.email, f.phone, f.website_url, f.logo_url, co.name AS country,
-                ${PROJECTS_COUNT} AS projects_count
+                (SELECT COUNT(*) FROM projects p WHERE p.funder_id = f.id AND ${inScope.sql}) AS projects_count
            ${from} ORDER BY f.name LIMIT ? OFFSET ?`,
-        [...params, limit, offset],
+        [...inScope.params, ...params, limit, offset],
       ),
       scalar(`SELECT COUNT(*) ${from}`, params),
     ])
-    return c.json({ data, total, page, pageSize })
+    return c.json({ data: data.map((f) => forRole(user, f)), total, page, pageSize })
   })
   .get('/:id', requirePermission('funders', 'view'), async (c) => {
+    const user = c.get('user')
     const id = parseId(c.req.param('id'))
+    const scope = funderScope(user)
     const funder = await one(
       `SELECT f.*, co.name AS country, f.portal_password_enc IS NOT NULL AS has_portal_password
-         FROM funders f LEFT JOIN countries co ON co.id = f.country_id WHERE f.id = ?`,
-      [id],
+         FROM funders f LEFT JOIN countries co ON co.id = f.country_id WHERE f.id = ? AND ${scope.sql}`,
+      [id, ...scope.params],
     )
     if (!funder) throw notFound('Funder')
+    const inScope = projectScope(user)
+    // Money columns only for roles that see the funds ledger.
+    const seesFunds = can(user.role, 'remittances')
     delete funder.portalPasswordEnc
-    const projects = await rows(
-      `SELECT p.id, p.code, p.title, p.status, p.type, p.total_funding, p.currency, p.start_date, p.end_date,
-              TRIM(CONCAT_WS(' ', i.title, i.first_name, i.last_name)) AS pi_name
-         FROM projects p LEFT JOIN investigators i ON i.id = p.pi_id
-        WHERE p.funder_id = ? ORDER BY p.start_date DESC, p.id DESC`,
-      [id],
+    const [projects, remittances] = await Promise.all([
+      rows(
+        `SELECT p.id, p.code, p.title, p.status, p.type, p.total_funding, p.currency, p.start_date, p.end_date,
+                TRIM(CONCAT_WS(' ', i.title, i.first_name, i.last_name)) AS pi_name,
+                ${PROJECT_RECEIVED} AS received, ${PROJECT_DISBURSED} AS disbursed
+           FROM projects p LEFT JOIN investigators i ON i.id = p.pi_id
+          WHERE p.funder_id = ? AND ${inScope.sql} ORDER BY p.start_date DESC, p.id DESC`,
+        [id, ...inScope.params],
+      ),
+      // What this funder has distributed, to any project (co-funding included).
+      rows(
+        `SELECT r.id, r.reference, r.amount, r.currency, r.exchange_rate, r.received_at, r.description,
+                p.id AS project_id, p.code AS project_code, p.title AS project_title, p.currency AS project_currency
+           FROM remittances r JOIN projects p ON p.id = r.project_id
+          WHERE r.funder_id = ? AND ${inScope.sql} ORDER BY r.received_at DESC, r.id DESC LIMIT 12`,
+        [id, ...inScope.params],
+      ),
+    ])
+    return c.json(
+      forRole(user, {
+        ...funder,
+        hasPortalPassword: Boolean(funder.hasPortalPassword),
+        projects: seesFunds ? projects : projects.map(({ received: _r, disbursed: _d, ...p }) => p),
+        remittances: seesFunds ? remittances : [],
+      }),
     )
-    return c.json({ ...funder, hasPortalPassword: Boolean(funder.hasPortalPassword), projects })
   })
   // Decrypts the stored portal password on demand; every reveal is logged.
   .get('/:id/portal-password', requirePermission('funders', 'manage'), async (c) => {

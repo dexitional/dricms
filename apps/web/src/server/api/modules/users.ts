@@ -1,6 +1,9 @@
-// Staff and investigator sign-in accounts (administrators only), plus the audit log.
+// Staff and investigator sign-in accounts (administrators only), plus the
+// audit log (everyone's for the Director and administrators, otherwise only
+// the user's own).
 import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
+import { AUDIT_ALL_ROLES } from '#/lib/permissions'
 import { userSchema } from '#/lib/schemas'
 import { requirePermission } from '../lib/auth'
 import { audit } from '../lib/audit'
@@ -69,9 +72,12 @@ export const usersRoute = new Hono()
 
 export const auditRoute = new Hono().get('/', requirePermission('audit', 'view'), async (c) => {
   const q = c.req.query()
+  const user = c.get('user')
   const { page, pageSize, limit, offset } = paging(q, 30)
   const where: Array<string> = ['1 = 1']
   const params: Array<unknown> = []
+  // Only the Director and administrators see everyone's activity.
+  if (!AUDIT_ALL_ROLES.includes(user.role)) (where.push('a.user_id = ?'), params.push(user.id))
   if (q.q) (where.push('(a.summary LIKE ? OR u.full_name LIKE ?)'), params.push(like(q.q), like(q.q)))
   if (q.entity) (where.push('a.entity = ?'), params.push(q.entity))
   const from = `FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id WHERE ${where.join(' AND ')}`

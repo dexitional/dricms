@@ -4,10 +4,10 @@ import { Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '#/lib/api-client'
 import { Button } from '#/components/ui/button'
-import { Skeleton } from '#/components/ui/skeleton'
 import { PageHeader } from '#/components/admin/page'
 import { useConfirm } from '#/components/admin/confirm'
 import { PaymentForm } from '#/components/forms/payment-form'
+import { FormSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/payments/$paymentId/edit')({ component: EditPayment })
 
@@ -59,7 +59,7 @@ function EditPayment() {
           )
         }
       />
-      {data ? <PaymentForm payment={data} /> : <Skeleton className="h-96" />}
+      {data ? <PaymentForm payment={data} /> : <FormSkeleton />}
     </>
   )
 }

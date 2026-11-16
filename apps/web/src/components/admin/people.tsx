@@ -16,7 +16,7 @@ type Row = Record<string, any> & { id: number }
 /** List page shared by investigators and personnel. */
 export function PeopleList({ kind }: { kind: 'investigator' | 'personnel' }) {
   const isInv = kind === 'investigator'
-  const canManage = useCan(isInv ? 'investigators' : 'personnel', 'manage')
+  const canManage = useCan(isInv ? 'investigators' : 'personnel', 'edit')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -70,7 +70,7 @@ export function PeopleList({ kind }: { kind: 'investigator' | 'personnel' }) {
             header: 'Name',
             cell: (r) => (
               <span className="flex items-center gap-3">
-                <Avatar name={personName(r)} />
+                <Avatar name={personName(r)} photoUrl={r.photoUrl} staffNo={r.staffNo} />
                 <span className="min-w-0">
                   <span className="block truncate font-semibold text-slate-800">{personName(r)}</span>
                   <span className="block truncate text-xs text-muted-foreground">{r.email ?? '—'}</span>

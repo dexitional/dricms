@@ -8,6 +8,8 @@ import {
   FolderKanban,
   HandCoins,
   Plus,
+  ReceiptText,
+  Scale,
   TrendingUp,
   Users,
   Wallet,
@@ -19,10 +21,11 @@ import { REQUEST_FORM_BY_TYPE } from '#/lib/forms'
 import type { RequestType } from '@dric/db/types'
 import { Card, CardBody, CardHeader } from '#/components/ui/card'
 import { Button } from '#/components/ui/button'
-import { Skeleton } from '#/components/ui/skeleton'
 import { Donut, MonthlyBars, RankBars, StatCard } from '#/components/admin/charts'
-import { EmptyState, Money, PageHeader, ProgressBar, StatusBadge } from '#/components/admin/page'
+import { EmptyState, FunderLogo, Money, PageHeader, ProgressBar, StatusBadge } from '#/components/admin/page'
+import { AUDIT_ALL_ROLES, can } from '#/lib/permissions'
 import { useCan, useUser } from '#/components/admin/session'
+import { DashboardSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/')({ component: Dashboard })
 
@@ -88,23 +91,16 @@ function QuickActions() {
   )
 }
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-32 rounded-2xl" />
-        ))}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
-        <Skeleton className="h-80 rounded-2xl" />
-      </div>
-    </div>
-  )
-}
-
 function StaffDashboard({ data }: { data: Row }) {
+  const seesRequests = useCan('requests')
+  const seesPeople = useCan('investigators')
+  // Clerks don't see claims, payments or fund balances.
+  const seesClaims = useCan('claims')
+  const seesPayments = useCan('payments')
+  const seesFunds = useCan('remittances')
+  const seesRetirements = useCan('retirements')
+  const role = useUser().role
+  const ownActivity = can(role, 'audit') && !AUDIT_ALL_ROLES.includes(role)
   const k = data.kpis
   const fc: string = data.fundingCurrency
   const cc: string = data.claimCurrency
@@ -133,61 +129,101 @@ function StaffDashboard({ data }: { data: Row }) {
           value={num(k.ongoing, 0)}
           sub={`of ${num(k.projects, 0)} in total`}
         />
-        <StatCard
-          icon={Banknote}
-          label={`Disbursed ${new Date().getFullYear()}`}
-          value={money(k.disbursedThisYear, cc, { compact: true })}
-          sub={`${money(k.disbursed, cc, { compact: true })} all time`}
-        />
-        <StatCard
-          icon={HandCoins}
-          label="Open claims"
-          value={num(k.openClaims, 0)}
-          sub={`${num(k.openRequests, 0)} form requests awaiting action`}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Disbursements"
-            description={`Tranche payments per month over the last year (${cc})`}
-            action={
-              <Link to="/admin/payments" className="text-xs font-semibold text-primary hover:underline">
-                All payments
-              </Link>
-            }
+        {seesPayments ? (
+          <StatCard
+            icon={Banknote}
+            label={`Disbursed ${new Date().getFullYear()}`}
+            value={money(k.disbursedThisYear, cc, { compact: true })}
+            sub={`${money(k.disbursed, cc, { compact: true })} all time`}
           />
-          <CardBody>
-            <MonthlyBars data={data.paymentsByMonth} currency={cc} />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Portfolio mix" description="Projects by type" />
-          <CardBody>
-            <Donut
-              items={(['PROJECT', 'CONSULTANCY'] as const).map((t) => ({
-                label: PROJECT_TYPE_LABELS[t],
-                value: Number(data.byType.find((r: Row) => r.type === t)?.count ?? 0),
-              }))}
-              centerLabel="Projects"
-              centerValue={num(k.projects, 0)}
-            />
-            <div className="mt-6 grid grid-cols-2 gap-2">
-              {statusOrder.map((s) => (
-                <div key={s} className="rounded-xl bg-muted px-3 py-2.5">
-                  <p className="text-lg font-extrabold text-slate-900">
-                    {num(data.byStatus.find((r: Row) => r.status === s)?.count ?? 0, 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{PROJECT_STATUS_LABELS[s]}</p>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
+        ) : (
+          <StatCard icon={Building2} label="Funders" value={num(k.funders, 0)} sub="funding bodies on record" />
+        )}
+        {seesClaims ? (
+          <StatCard
+            icon={HandCoins}
+            label="Open claims"
+            value={num(k.openClaims, 0)}
+            sub={seesRequests ? `${num(k.openRequests, 0)} form requests awaiting action` : 'pending or processing'}
+          />
+        ) : (
+          <StatCard
+            icon={FileStack}
+            label="Open form requests"
+            value={num(k.openRequests ?? 0, 0)}
+            sub="submitted, received or under review"
+          />
+        )}
       </div>
 
+      {seesPayments && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader
+              title="Disbursements"
+              description={`Tranche payments per month over the last year (${cc})`}
+              action={
+                <Link to="/admin/payments" className="text-xs font-semibold text-primary hover:underline">
+                  All payments
+                </Link>
+              }
+            />
+            <CardBody>
+              <MonthlyBars data={data.paymentsByMonth} currency={cc} />
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="Portfolio mix" description="Projects by type" />
+            <CardBody>
+              <Donut
+                items={(['PROJECT', 'CONSULTANCY'] as const).map((t) => ({
+                  label: PROJECT_TYPE_LABELS[t],
+                  value: Number(data.byType.find((r: Row) => r.type === t)?.count ?? 0),
+                }))}
+                centerLabel="Projects"
+                centerValue={num(k.projects, 0)}
+              />
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                {statusOrder.map((s) => (
+                  <div key={s} className="rounded-xl bg-muted px-3 py-2.5">
+                    <p className="text-lg font-extrabold text-slate-900">
+                      {num(data.byStatus.find((r: Row) => r.status === s)?.count ?? 0, 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{PROJECT_STATUS_LABELS[s]}</p>
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
+        {!seesPayments && (
+          <Card>
+            <CardHeader title="Portfolio mix" description="Projects by type" />
+            <CardBody>
+              <Donut
+                items={(['PROJECT', 'CONSULTANCY'] as const).map((t) => ({
+                  label: PROJECT_TYPE_LABELS[t],
+                  value: Number(data.byType.find((r: Row) => r.type === t)?.count ?? 0),
+                }))}
+                centerLabel="Projects"
+                centerValue={num(k.projects, 0)}
+              />
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                {statusOrder.map((s) => (
+                  <div key={s} className="rounded-xl bg-muted px-3 py-2.5">
+                    <p className="text-lg font-extrabold text-slate-900">
+                      {num(data.byStatus.find((r: Row) => r.status === s)?.count ?? 0, 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{PROJECT_STATUS_LABELS[s]}</p>
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
         <Card>
           <CardHeader title="Top funders" description={`Total awards in ${fc}`} />
           <CardBody>
@@ -202,35 +238,39 @@ function StaffDashboard({ data }: { data: Row }) {
             />
           </CardBody>
         </Card>
-        <Card>
-          <CardHeader
-            title="Claims pipeline"
-            description={`Requests for disbursement (${cc})`}
-            action={
-              <Link to="/admin/claims" className="text-xs font-semibold text-primary hover:underline">
-                Review
-              </Link>
-            }
-          />
-          <CardBody className="space-y-3">
-            {claimOrder.map((s) => (
-              <Link
-                key={s}
-                to="/admin/claims"
-                search={{ status: s }}
-                className="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors hover:border-border-strong hover:bg-slate-50"
-              >
-                <StatusBadge status={s} label={CLAIM_STATUS_LABELS[s]} />
-                <span className="text-right">
-                  <span className="block font-mono text-sm font-semibold tabular-nums">{money(claimTotal(s), cc)}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {claimCount(s)} claim{claimCount(s) === 1 ? '' : 's'}
+        {seesClaims && (
+          <Card>
+            <CardHeader
+              title="Claims pipeline"
+              description={`Requests for disbursement (${cc})`}
+              action={
+                <Link to="/admin/claims" className="text-xs font-semibold text-primary hover:underline">
+                  Review
+                </Link>
+              }
+            />
+            <CardBody className="space-y-3">
+              {claimOrder.map((s) => (
+                <Link
+                  key={s}
+                  to="/admin/claims"
+                  search={{ status: s }}
+                  className="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors hover:border-border-strong hover:bg-slate-50"
+                >
+                  <StatusBadge status={s} label={CLAIM_STATUS_LABELS[s]} />
+                  <span className="text-right">
+                    <span className="block font-mono text-sm font-semibold tabular-nums">
+                      {money(claimTotal(s), cc)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {claimCount(s)} claim{claimCount(s) === 1 ? '' : 's'}
+                    </span>
                   </span>
-                </span>
-              </Link>
-            ))}
-          </CardBody>
-        </Card>
+                </Link>
+              ))}
+            </CardBody>
+          </Card>
+        )}
         <Card>
           <CardHeader title="Budget utilisation" description="Largest active projects: spent vs phase budgets" />
           <CardBody className="space-y-4">
@@ -258,41 +298,135 @@ function StaffDashboard({ data }: { data: Row }) {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Latest claims"
-            action={
-              <Link to="/admin/claims" className="text-xs font-semibold text-primary hover:underline">
-                View all
-              </Link>
-            }
-          />
-          <ul className="divide-y">
-            {(data.recentClaims as Array<Row>).length === 0 && <EmptyState title="No claims yet" icon={HandCoins} />}
-            {(data.recentClaims as Array<Row>).map((c) => (
-              <li key={c.id}>
-                <Link
-                  to="/admin/claims/$claimId"
-                  params={{ claimId: String(c.id) }}
-                  className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">{c.purpose}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {c.reference} · {c.projectTitle} · {c.requester ?? '—'}
-                    </p>
-                  </div>
-                  <Money amount={c.amount} currency={c.currency} className="hidden sm:inline" />
-                  <StatusBadge
-                    status={c.status}
-                    label={CLAIM_STATUS_LABELS[c.status as keyof typeof CLAIM_STATUS_LABELS]}
-                  />
+      {seesFunds && (
+        <div className={seesRetirements ? 'grid gap-4 lg:grid-cols-3' : 'grid gap-4'}>
+          <Card className="lg:col-span-2">
+            <CardHeader
+              title="Project fund balances"
+              description="Ongoing projects holding the most funder money: received, paid out in tranches, and what is left"
+              action={
+                <Link to="/admin/remittances" className="text-xs font-semibold text-primary hover:underline">
+                  Remittances
                 </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+              }
+            />
+            {(data.balances as Array<Row>).length === 0 ? (
+              <EmptyState
+                icon={Scale}
+                title="No funds recorded yet"
+                description="Record funder remittances to see each project’s balance."
+              />
+            ) : (
+              <ul className="divide-y">
+                {(data.balances as Array<Row>).map((p) => {
+                  const balance = Number(p.received) - Number(p.disbursed)
+                  const used = percent(p.disbursed, p.received)
+                  return (
+                    <li key={p.id}>
+                      <Link
+                        to="/admin/projects/$projectId"
+                        params={{ projectId: String(p.id) }}
+                        search={{ tab: 'funds' }}
+                        className="grid gap-x-6 gap-y-2 px-5 py-3.5 hover:bg-slate-50 sm:grid-cols-[minmax(0,1fr)_9rem]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-slate-800">{p.title}</span>
+                          <ProgressBar value={used} tone={used > 95 ? 'danger' : 'primary'} className="mt-2" />
+                          <span className="mt-1 block text-[0.7rem] text-muted-foreground">
+                            {money(p.disbursed, p.currency, { compact: true })} paid out of{' '}
+                            {money(p.received, p.currency, { compact: true })} received ({used}%)
+                          </span>
+                        </span>
+                        <span className="text-right sm:self-center">
+                          <span className="eyebrow block">Balance</span>
+                          <Money
+                            amount={balance}
+                            currency={p.currency}
+                            className={balance < 0 ? 'font-semibold text-destructive' : 'font-semibold'}
+                          />
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Card>
+          {seesRetirements && (
+            <Card>
+              <CardHeader
+                title="Tranche retirement"
+                description="Tranches accounted for with receipts"
+                action={
+                  <Link
+                    to="/admin/payments"
+                    search={{ retirement: 'outstanding' }}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Follow up
+                  </Link>
+                }
+              />
+              <CardBody>
+                <Donut
+                  items={[
+                    { label: 'Retired', value: Number(data.retirement?.retired ?? 0) },
+                    { label: 'Partly retired', value: Number(data.retirement?.partial ?? 0) },
+                    { label: 'Not retired', value: Number(data.retirement?.unretired ?? 0) },
+                  ]}
+                  centerLabel="Tranches"
+                  centerValue={num(data.retirement?.tranches ?? 0, 0)}
+                />
+                <p className="mt-5 flex items-center gap-2 rounded-xl bg-muted px-3 py-2.5 text-sm">
+                  <ReceiptText className="size-4 text-muted-foreground" />
+                  <span>
+                    <b>{num(data.retirement?.awaitingReview ?? 0, 0)}</b> receipt line
+                    {Number(data.retirement?.awaitingReview) === 1 ? '' : 's'} awaiting review
+                  </span>
+                </p>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      )}
+
+      <div className={seesClaims ? 'grid gap-4 lg:grid-cols-3' : 'grid gap-4'}>
+        {seesClaims && (
+          <Card className="lg:col-span-2">
+            <CardHeader
+              title="Latest claims"
+              action={
+                <Link to="/admin/claims" className="text-xs font-semibold text-primary hover:underline">
+                  View all
+                </Link>
+              }
+            />
+            <ul className="divide-y">
+              {(data.recentClaims as Array<Row>).length === 0 && <EmptyState title="No claims yet" icon={HandCoins} />}
+              {(data.recentClaims as Array<Row>).map((c) => (
+                <li key={c.id}>
+                  <Link
+                    to="/admin/claims/$claimId"
+                    params={{ claimId: String(c.id) }}
+                    className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-800">{c.purpose}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {c.reference} · {c.projectTitle} · {c.requester ?? '—'}
+                      </p>
+                    </div>
+                    <Money amount={c.amount} currency={c.currency} className="hidden sm:inline" />
+                    <StatusBadge
+                      status={c.status}
+                      label={CLAIM_STATUS_LABELS[c.status as keyof typeof CLAIM_STATUS_LABELS]}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
         <Card>
           <CardHeader title="Ending soon" description="Ongoing projects ending within 120 days" />
           <ul className="divide-y">
@@ -325,45 +459,47 @@ function StaffDashboard({ data }: { data: Row }) {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader
-            title="Recent form requests"
-            action={
-              <Link to="/admin/requests" className="text-xs font-semibold text-primary hover:underline">
-                View all
-              </Link>
-            }
-          />
-          <ul className="divide-y">
-            {(data.recentRequests as Array<Row>).length === 0 && (
-              <EmptyState title="No requests yet" icon={FileStack} />
-            )}
-            {(data.recentRequests as Array<Row>).map((r) => (
-              <li key={r.id}>
-                <Link
-                  to="/admin/requests/$requestId"
-                  params={{ requestId: String(r.id) }}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">{r.projectTitle}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {REQUEST_FORM_BY_TYPE[r.type as RequestType].shortTitle} · {r.firstName} {r.surname} ·{' '}
-                      {relative(r.createdAt)}
-                    </p>
-                  </div>
-                  <StatusBadge
-                    status={r.status}
-                    label={REQUEST_STATUS_LABELS[r.status as keyof typeof REQUEST_STATUS_LABELS]}
-                  />
+      <div className={seesRequests ? 'grid gap-4 lg:grid-cols-2' : 'grid gap-4'}>
+        {seesRequests && (
+          <Card>
+            <CardHeader
+              title="Recent form requests"
+              action={
+                <Link to="/admin/requests" className="text-xs font-semibold text-primary hover:underline">
+                  View all
                 </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+              }
+            />
+            <ul className="divide-y">
+              {(data.recentRequests as Array<Row>).length === 0 && (
+                <EmptyState title="No requests yet" icon={FileStack} />
+              )}
+              {(data.recentRequests as Array<Row>).map((r) => (
+                <li key={r.id}>
+                  <Link
+                    to="/admin/requests/$requestId"
+                    params={{ requestId: String(r.id) }}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-800">{r.projectTitle}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {REQUEST_FORM_BY_TYPE[r.type as RequestType].shortTitle} · {r.firstName} {r.surname} ·{' '}
+                        {relative(r.createdAt)}
+                      </p>
+                    </div>
+                    <StatusBadge
+                      status={r.status}
+                      label={REQUEST_STATUS_LABELS[r.status as keyof typeof REQUEST_STATUS_LABELS]}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
         <Card>
-          <CardHeader title="Recent activity" />
+          <CardHeader title={ownActivity ? 'Your recent activity' : 'Recent activity'} />
           <ul className="space-y-0 px-5 py-3">
             {(data.activity as Array<Row>).length === 0 && <EmptyState title="No activity yet" />}
             {(data.activity as Array<Row>).map((a, i, all) => (
@@ -383,14 +519,20 @@ function StaffDashboard({ data }: { data: Row }) {
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <MiniStat icon={Building2} label="Funders" value={k.funders} to="/admin/funders" />
-        <MiniStat icon={Users} label="Active investigators" value={k.investigators} to="/admin/investigators" />
-        <MiniStat icon={Users} label="Active personnel" value={k.personnel} to="/admin/personnel" />
-        <MiniStat
-          icon={TrendingUp}
-          label={`Approved claims (${cc})`}
-          value={money(k.approvedClaims, cc, { compact: true })}
-          to="/admin/claims"
-        />
+        {seesPeople && (
+          <>
+            <MiniStat icon={Users} label="Active investigators" value={k.investigators} to="/admin/investigators" />
+            <MiniStat icon={Users} label="Active personnel" value={k.personnel} to="/admin/personnel" />
+          </>
+        )}
+        {seesClaims && (
+          <MiniStat
+            icon={TrendingUp}
+            label={`Approved claims (${cc})`}
+            value={money(k.approvedClaims, cc, { compact: true })}
+            to="/admin/claims"
+          />
+        )}
       </div>
     </div>
   )
@@ -505,12 +647,51 @@ function InvestigatorDashboard({ data }: { data: Row }) {
                     <Money amount={p.totalFunding} currency={p.currency} className="font-semibold" />
                   </div>
                   <ProgressBar value={used} className="mt-2" />
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-muted px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">
+                      Closing balance · {money(p.received, p.currency, { compact: true })} received
+                    </span>
+                    <Money
+                      amount={Number(p.received) - Number(p.disbursed)}
+                      currency={p.currency}
+                      className={
+                        Number(p.received) - Number(p.disbursed) < 0
+                          ? 'font-semibold text-destructive'
+                          : 'font-semibold text-slate-900'
+                      }
+                    />
+                  </div>
                 </Link>
               )
             })}
           </div>
         )}
       </Card>
+      {(data.funders as Array<Row> | undefined)?.length ? (
+        <Card>
+          <CardHeader title="My funders" description="Funders of the projects you lead or co-investigate" />
+          <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
+            {(data.funders as Array<Row>).map((f) => (
+              <Link
+                key={f.id}
+                to="/admin/funders/$funderId"
+                params={{ funderId: String(f.id) }}
+                className="lift flex items-center gap-3 rounded-2xl border p-4"
+              >
+                <FunderLogo url={f.logoUrl} name={f.name} className="size-11" />
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-slate-900">{f.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {f.projects} project{Number(f.projects) === 1 ? '' : 's'}
+                    {Number(f.ongoing) ? ` · ${f.ongoing} ongoing` : ''}
+                    {f.country ? ` · ${f.country}` : ''}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader

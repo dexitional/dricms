@@ -105,6 +105,14 @@ const person = {
   phone: opt(40),
   email: optEmail,
   staffNo: opt(40),
+  // Only a photo stored through POST /api/files/photos.
+  photoUrl: z.preprocess(
+    emptyToNull,
+    z
+      .string()
+      .regex(/^\/api\/files\/\d{4}\/\d{2}\/[a-f0-9]{24}\.(jpg|png|webp)$/, 'Upload the photo again.')
+      .nullable(),
+  ),
   department: opt(150),
   address: opt(255),
   ghanaCardNo: z.preprocess(
@@ -214,6 +222,17 @@ export const kickoffSchema = z.object({
 
 // ---------------------------------------------------------------- Claims & payments
 
+/** An uploaded file, as returned by POST /api/files (or /api/public/uploads). */
+export const attachmentSchema = z.object({
+  url: z.string().startsWith('/api/files/').max(500),
+  name: z.string().max(255),
+  size: z.number().int().nonnegative(),
+  type: z.string().max(120),
+})
+
+const positiveAmount = z.coerce.number({ error: 'Enter an amount' }).positive('Must be more than zero').max(1e12)
+const rate = z.coerce.number({ error: 'Enter a rate' }).positive('Must be more than zero').max(1e6)
+
 export const claimItemSchema = z.object({
   description: req(300),
   quantity: z.coerce.number().min(0).max(1e9),
@@ -231,6 +250,7 @@ export const claimSchema = z.object({
   amount,
   currency,
   items: z.array(claimItemSchema).max(60).default([]),
+  attachments: z.array(attachmentSchema).max(20).default([]),
   signedName: opt(150),
   signedAt: optDate,
 })
@@ -249,20 +269,63 @@ export const claimOfficialSchema = z.object({
 export const paymentSchema = z.object({
   claimId: id('Choose the tranche request'),
   description: opt(500),
-  amount: z.coerce.number({ error: 'Enter an amount' }).positive('Must be more than zero').max(1e12),
+  amount: positiveAmount,
   currency,
-  conversionRate: z.coerce.number({ error: 'Enter a rate' }).positive('Must be more than zero').max(1e6),
+  conversionRate: rate,
+  /** Tranche currency → project currency. The API works it out when it can; see payments.ts. */
+  projectRate: z
+    .preprocess((v) => (v === '' || v == null ? null : Number(v)), rate.nullable())
+    .optional()
+    .default(null),
   paidAt: date,
 })
 
-// ---------------------------------------------------------------- Request forms
-
-export const attachmentSchema = z.object({
-  url: z.string().startsWith('/api/files/').max(500),
-  name: z.string().max(255),
-  size: z.number().int().nonnegative(),
-  type: z.string().max(120),
+/** Funds a funder distributes to a project. */
+export const remittanceSchema = z.object({
+  projectId: id('Choose the project'),
+  funderId: optId,
+  description: opt(500),
+  amount: positiveAmount,
+  currency,
+  exchangeRate: rate,
+  receivedAt: date,
+  attachments: z.array(attachmentSchema).max(10).default([]),
 })
+
+/** A dated entry in the exchange-rate register: 1 base = rate quote. */
+export const exchangeRateSchema = z
+  .object({
+    baseCurrency: currency,
+    quoteCurrency: currency,
+    rate,
+    effectiveDate: date,
+    source: opt(150),
+  })
+  .refine((v) => v.baseCurrency !== v.quoteCurrency, {
+    message: 'Choose two different currencies',
+    path: ['quoteCurrency'],
+  })
+
+/** One line of a tranche's retirement: what was spent on an activity, with receipts. */
+export const retirementSchema = z.object({
+  activityId: id('Choose the activity'),
+  description: req(500),
+  amount: positiveAmount,
+  spentAt: date,
+  receipts: z.array(attachmentSchema).min(1, 'Upload at least one receipt').max(10),
+})
+
+export const retirementReviewSchema = z
+  .object({
+    status: z.enum(['ACCEPTED', 'REJECTED']),
+    reviewNote: opt(500),
+  })
+  .refine((v) => v.status === 'ACCEPTED' || v.reviewNote, {
+    path: ['reviewNote'],
+    message: 'Say why the receipts are rejected',
+  })
+
+// ---------------------------------------------------------------- Request forms
 
 export const equipmentItemSchema = z.object({
   description: req(300),

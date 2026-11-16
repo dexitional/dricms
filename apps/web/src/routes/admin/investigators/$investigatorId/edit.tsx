@@ -2,9 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '#/lib/api-client'
 import { personName } from '#/lib/format'
-import { Skeleton } from '#/components/ui/skeleton'
 import { PageHeader } from '#/components/admin/page'
 import { PersonForm } from '#/components/forms/person-form'
+import { FormSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/investigators/$investigatorId/edit')({ component: Edit })
 
@@ -24,7 +24,7 @@ function Edit() {
         }}
         title="Edit investigator"
       />
-      {data ? <PersonForm kind="investigator" person={data} /> : <Skeleton className="h-96" />}
+      {data ? <PersonForm kind="investigator" person={data} /> : <FormSkeleton sections={3} />}
     </>
   )
 }
