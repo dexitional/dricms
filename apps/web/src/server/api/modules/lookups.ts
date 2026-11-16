@@ -36,7 +36,7 @@ export const lookupsRoute = new Hono()
     const scope = projectScope(c.get('user'))
     return c.json(
       await rows(
-        `SELECT p.id AS value, p.title AS label, CONCAT_WS(' · ', p.code, f.name) AS hint, p.currency, p.funder_id
+        `SELECT p.id AS value, p.title AS label, CONCAT_WS(' · ', p.code, f.name) AS hint, p.code, p.currency, p.funder_id
            FROM projects p LEFT JOIN funders f ON f.id = p.funder_id WHERE ${scope.sql} ORDER BY p.title`,
         scope.params,
       ),

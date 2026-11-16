@@ -4,6 +4,7 @@ import {
   Banknote,
   Building2,
   CalendarClock,
+  FilePlus2,
   FileStack,
   FolderKanban,
   HandCoins,
@@ -71,8 +72,16 @@ function Dashboard() {
 function QuickActions() {
   const canProjects = useCan('projects', 'manage')
   const canClaims = useCan('claims', 'manage')
+  const isInvestigator = useUser().role === 'investigator'
   return (
     <>
+      {isInvestigator && (
+        <Button variant="outline" asChild>
+          <Link to="/admin/requests/new">
+            <FilePlus2 /> Create request form
+          </Link>
+        </Button>
+      )}
       {canClaims && (
         <Button variant="outline" asChild>
           <Link to="/admin/claims/new">
