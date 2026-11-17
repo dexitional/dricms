@@ -10,10 +10,12 @@ import { filesRoute } from './modules/files'
 import { fundersRoute } from './modules/funders'
 import { investigatorsRoute } from './modules/investigators'
 import { lookupsRoute } from './modules/lookups'
-import { paymentsRoute } from './modules/payments'
+import { paymentsRoute, retirementsRoute } from './modules/payments'
 import { personnelRoute } from './modules/personnel'
 import { activitiesRoute, phasesRoute, projectsRoute } from './modules/projects'
+import { remittancesRoute } from './modules/remittances'
 import { publicRoute, requestsRoute } from './modules/requests'
+import { ratesRoute } from './modules/rates'
 
 const app = new Hono()
 
@@ -33,6 +35,9 @@ app.route('/phases', phasesRoute)
 app.route('/activities', activitiesRoute)
 app.route('/claims', claimsRoute)
 app.route('/payments', paymentsRoute)
+app.route('/retirements', retirementsRoute)
+app.route('/remittances', remittancesRoute)
+app.route('/rates', ratesRoute)
 app.route('/requests', requestsRoute)
 app.route('/users', usersRoute)
 app.route('/audit', auditRoute)

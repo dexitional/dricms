@@ -4,16 +4,19 @@
 //   /api/claims               list, create
 //   /api/claims/:id           detail, update (content), delete
 //   /api/claims/:id/official  status, receipt date and Director/VC decisions
+//                             (the accountant processes claims here but can't
+//                             create, edit or delete them)
 import { Hono } from 'hono'
 import type { PoolConnection } from 'mysql2/promise'
 import type { SessionUser } from '#/server/session-core'
-import { CLAIM_STATUS_ROLES, DECISION_ROLES, RECEIPT_ROLES } from '#/lib/permissions'
+import { CLAIM_OFFICIAL_ROLES, CLAIM_RECEIPT_ROLES, CLAIM_STATUS_ROLES, DECISION_ROLES } from '#/lib/permissions'
 import { claimOfficialSchema, claimSchema } from '#/lib/schemas'
 import type { z } from 'zod'
-import { assertRole, requirePermission } from '../lib/auth'
+import { assertRole, requirePermission, requireRoles } from '../lib/auth'
 import { audit } from '../lib/audit'
 import { exec, insert, like, one, paging, parseId, rows, scalar, update, withTransaction } from '../lib/db'
 import { AppError, notFound } from '../lib/errors'
+import { RETIRED, RETIRE_PENDING, retirementState } from '../lib/ledger'
 import { claimReference, retryOnDuplicate } from '../lib/refs'
 import { projectScope, requireInvestigatorLink } from '../lib/scope'
 import { validate } from '../lib/validate'
@@ -142,16 +145,23 @@ export const claimsRoute = new Hono()
         [id],
       ),
       rows(
-        `SELECT id, reference, description, amount, currency, conversion_rate, paid_at, amount * conversion_rate AS converted
-           FROM payments WHERE claim_id = ? ORDER BY paid_at, id`,
+        `SELECT pm.id, pm.reference, pm.description, pm.amount, pm.currency, pm.conversion_rate, pm.paid_at,
+                pm.amount * pm.conversion_rate AS converted, ${RETIRED} AS retired, ${RETIRE_PENDING} AS retire_pending
+           FROM payments pm WHERE pm.claim_id = ? ORDER BY pm.paid_at, pm.id`,
         [id],
       ),
     ])
-    return c.json({ ...claim, items, payments, balance: round2(claim!.amount - claim!.paid) })
+    return c.json({
+      ...claim,
+      attachments: claim!.attachments ?? [],
+      items,
+      payments: payments.map((pm) => ({ ...pm, retirement: retirementState(pm.amount, pm.retired, pm.retirePending) })),
+      balance: round2(claim!.amount - claim!.paid),
+    })
   })
   .post('/', requirePermission('claims', 'manage'), validate('json', claimSchema), async (c) => {
     const user = c.get('user')
-    const { items, ...data } = c.req.valid('json')
+    const { items, attachments, ...data } = c.req.valid('json')
     const phase = await one<{ projectId: number; piId: number | null }>(
       'SELECT ph.project_id, p.pi_id FROM phases ph JOIN projects p ON p.id = ph.project_id WHERE ph.id = ?',
       [data.phaseId],
@@ -168,7 +178,15 @@ export const claimsRoute = new Hono()
       withTransaction(async (conn) => {
         const claimId = await insert(
           'claims',
-          { ...data, investigatorId, amount, reference: claimReference(), status: 'PENDING', createdBy: user.id },
+          {
+            ...data,
+            investigatorId,
+            amount,
+            attachments: JSON.stringify(attachments),
+            reference: claimReference(),
+            status: 'PENDING',
+            createdBy: user.id,
+          },
           conn,
         )
         await saveItems(conn, claimId, lines)
@@ -183,7 +201,7 @@ export const claimsRoute = new Hono()
     const id = parseId(c.req.param('id'))
     const claim = await loadClaim(user, id)
     assertCanEditContent(user, claim)
-    const { items, ...data } = c.req.valid('json')
+    const { items, attachments, ...data } = c.req.valid('json')
     const phase = await one<{ projectId: number }>('SELECT project_id FROM phases WHERE id = ?', [data.phaseId])
     if (!phase) throw notFound('Phase')
     await assertProjectAccess(user, phase.projectId)
@@ -194,7 +212,12 @@ export const claimsRoute = new Hono()
       await update(
         'claims',
         id,
-        { ...data, amount, investigatorId: user.role === 'investigator' ? claim.investigatorId : data.investigatorId },
+        {
+          ...data,
+          amount,
+          attachments: JSON.stringify(attachments),
+          investigatorId: user.role === 'investigator' ? claim.investigatorId : data.investigatorId,
+        },
         conn,
       )
       await saveItems(conn, id, lines)
@@ -202,7 +225,7 @@ export const claimsRoute = new Hono()
     audit(user, 'update', 'claim', id, `Updated claim ${claim.reference}`)
     return c.json({ id })
   })
-  .patch('/:id/official', requirePermission('claims', 'manage'), validate('json', claimOfficialSchema), async (c) => {
+  .patch('/:id/official', requireRoles(CLAIM_OFFICIAL_ROLES), validate('json', claimOfficialSchema), async (c) => {
     const user = c.get('user')
     const id = parseId(c.req.param('id'))
     const claim = await loadClaim(user, id)
@@ -213,7 +236,7 @@ export const claimsRoute = new Hono()
         throw new AppError('A claim with payments cannot be declined.', 409)
       }
     }
-    if (data.receivedAt !== undefined) assertRole(user, RECEIPT_ROLES, 'record receipt')
+    if (data.receivedAt !== undefined) assertRole(user, CLAIM_RECEIPT_ROLES, 'record receipt')
     const decisions = [
       'directorDecision',
       'directorName',

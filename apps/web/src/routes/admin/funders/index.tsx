@@ -7,7 +7,8 @@ import type { Page } from '#/lib/api-client'
 import { Button } from '#/components/ui/button'
 import { DataTable, Pagination, SearchInput, Toolbar } from '#/components/admin/data-table'
 import { EmptyState, FunderLogo, PageHeader } from '#/components/admin/page'
-import { useCan } from '#/components/admin/session'
+import { FUNDER_CONTACT_ROLES } from '#/lib/permissions'
+import { useCan, useUser } from '#/components/admin/session'
 
 export const Route = createFileRoute('/admin/funders/')({ component: FundersPage })
 
@@ -15,6 +16,7 @@ type Row = Record<string, any> & { id: number }
 
 function FundersPage() {
   const canManage = useCan('funders', 'manage')
+  const seesContact = FUNDER_CONTACT_ROLES.includes(useUser().role)
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const { data, isLoading } = useQuery({
@@ -67,7 +69,14 @@ function FundersPage() {
             ),
           },
           { header: 'Country', cell: (r) => r.country ?? '—' },
-          { header: 'Contact', cell: (r) => <span className="text-xs">{r.email ?? r.phone ?? '—'}</span> },
+          ...(seesContact
+            ? [
+                {
+                  header: 'Contact',
+                  cell: (r: Record<string, any>) => <span className="text-xs">{r.email ?? r.phone ?? '—'}</span>,
+                },
+              ]
+            : []),
           { header: 'Projects', align: 'right', cell: (r) => <span className="font-mono">{r.projectsCount}</span> },
         ]}
       />

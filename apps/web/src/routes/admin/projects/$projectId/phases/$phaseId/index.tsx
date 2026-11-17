@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  ReceiptText,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -21,12 +22,12 @@ import { ACTIVITY_STATUS_LABELS, CLAIM_STATUS_LABELS } from '#/lib/labels'
 import { Button } from '#/components/ui/button'
 import { Card, CardBody, CardHeader } from '#/components/ui/card'
 import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from '#/components/ui/dropdown'
-import { Skeleton } from '#/components/ui/skeleton'
 import { DataTable } from '#/components/admin/data-table'
 import { EmptyState, Money, PageHeader, ProgressBar, StatusBadge } from '#/components/admin/page'
 import { useConfirm } from '#/components/admin/confirm'
 import { useCan } from '#/components/admin/session'
 import { ActivityDialog } from '#/components/forms/activity-dialog'
+import { DetailSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/projects/$projectId/phases/$phaseId/')({ component: PhasePage })
 
@@ -39,11 +40,12 @@ function PhasePage() {
   const canManage = useCan('projects', 'manage')
   const canActivities = useCan('activities', 'manage')
   const canClaim = useCan('claims', 'manage')
+  const seesClaims = useCan('claims')
   const { confirm, dialog } = useConfirm()
   const [editing, setEditing] = useState<Row | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const { data: ph } = useQuery({ queryKey: ['phases', phaseId], queryFn: () => api.get<Row>(`/phases/${phaseId}`) })
-  if (!ph) return <Skeleton className="h-[30rem]" />
+  if (!ph) return <DetailSkeleton />
 
   const activities = ph.activities as Array<Row>
   const available = Number(ph.balanceBf) + Number(ph.budget)
@@ -200,6 +202,23 @@ function PhasePage() {
                           )}
                           {a.subjects && <span>Subjects: {a.subjects}</span>}
                         </div>
+                        {(a.retired as Array<Row>).length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {(a.retired as Array<Row>).map((r) => (
+                              <span
+                                key={r.currency}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-[0.72rem] text-emerald-800"
+                                title={`${r.receipts} receipt file(s) on tranche retirements`}
+                              >
+                                <ReceiptText className="size-3.5" />
+                                Spent (retired) <b className="font-mono">{money(r.accepted, r.currency)}</b>
+                                {Number(r.pending) > 0 && (
+                                  <span className="text-amber-700">+ {money(r.pending, r.currency)} in review</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {a.report && (
                           <p className="mt-2 rounded-xl bg-muted px-3 py-2 text-xs leading-relaxed text-slate-600">
                             {a.report}
@@ -271,34 +290,36 @@ function PhasePage() {
               </div>
             </CardBody>
           </Card>
-          <Card>
-            <CardHeader title="Claims on this phase" />
-            <DataTable
-              className="rounded-none border-0"
-              rows={ph.claims}
-              rowLink={(c) => ({ to: '/admin/claims/$claimId', params: { claimId: String(c.id) } })}
-              empty={<EmptyState icon={HandCoins} title="No claims yet" className="py-8" />}
-              columns={[
-                {
-                  header: 'Claim',
-                  cell: (c: Row) => (
-                    <span>
-                      <span className="block max-w-40 truncate font-semibold">{c.purpose}</span>
-                      <StatusBadge
-                        status={c.status}
-                        label={CLAIM_STATUS_LABELS[c.status as keyof typeof CLAIM_STATUS_LABELS]}
-                      />
-                    </span>
-                  ),
-                },
-                {
-                  header: 'Amount',
-                  align: 'right',
-                  cell: (c: Row) => <Money amount={c.amount} currency={c.currency} />,
-                },
-              ]}
-            />
-          </Card>
+          {seesClaims && (
+            <Card>
+              <CardHeader title="Claims on this phase" />
+              <DataTable
+                className="rounded-none border-0"
+                rows={ph.claims}
+                rowLink={(c) => ({ to: '/admin/claims/$claimId', params: { claimId: String(c.id) } })}
+                empty={<EmptyState icon={HandCoins} title="No claims yet" className="py-8" />}
+                columns={[
+                  {
+                    header: 'Claim',
+                    cell: (c: Row) => (
+                      <span>
+                        <span className="block max-w-40 truncate font-semibold">{c.purpose}</span>
+                        <StatusBadge
+                          status={c.status}
+                          label={CLAIM_STATUS_LABELS[c.status as keyof typeof CLAIM_STATUS_LABELS]}
+                        />
+                      </span>
+                    ),
+                  },
+                  {
+                    header: 'Amount',
+                    align: 'right',
+                    cell: (c: Row) => <Money amount={c.amount} currency={c.currency} />,
+                  },
+                ]}
+              />
+            </Card>
+          )}
           <div className="flex gap-2">
             {index > 0 && (
               <Button variant="outline" size="sm" className="flex-1" asChild>

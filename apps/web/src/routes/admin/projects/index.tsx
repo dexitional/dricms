@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { FolderKanban, Plus } from 'lucide-react'
 import { api } from '#/lib/api-client'
 import type { Page } from '#/lib/api-client'
-import { date } from '#/lib/format'
+import { date, money } from '#/lib/format'
 import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS } from '#/lib/labels'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -19,6 +19,7 @@ type Row = Record<string, any> & { id: number }
 function ProjectsPage() {
   const user = useUser()
   const canManage = useCan('projects', 'manage')
+  const seesFunds = useCan('remittances')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [type, setType] = useState('')
@@ -115,6 +116,33 @@ function ProjectsPage() {
             align: 'right',
             cell: (r) => <Money amount={r.totalFunding} currency={r.currency} className="font-semibold" />,
           },
+          ...(seesFunds
+            ? [
+                {
+                  header: 'Balance',
+                  align: 'right' as const,
+                  cell: (r: Record<string, any>) => {
+                    const balance = Number(r.received) - Number(r.disbursed)
+                    return (
+                      <span
+                        title={`${money(r.received, r.currency)} received − ${money(r.disbursed, r.currency)} paid out`}
+                      >
+                        <Money
+                          amount={balance}
+                          currency={r.currency}
+                          className={balance < 0 ? 'block font-semibold text-destructive' : 'block font-semibold'}
+                        />
+                        <span className="text-[0.7rem] text-muted-foreground">
+                          {Number(r.received)
+                            ? `of ${money(r.received, r.currency, { compact: true })} received`
+                            : 'nothing received'}
+                        </span>
+                      </span>
+                    )
+                  },
+                },
+              ]
+            : []),
         ]}
       />
       {data && <Pagination page={page} pageSize={data.pageSize} total={data.total} onChange={setPage} />}

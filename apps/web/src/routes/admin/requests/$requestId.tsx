@@ -11,7 +11,6 @@ import { REQUEST_FORM_BY_TYPE } from '#/lib/forms'
 import { REQUEST_STATUS_LABELS } from '#/lib/labels'
 import { Button } from '#/components/ui/button'
 import { Card, CardBody, CardHeader } from '#/components/ui/card'
-import { Skeleton } from '#/components/ui/skeleton'
 import { Combobox } from '#/components/admin/combobox'
 import { useLookup } from '#/components/admin/lookups'
 import { OfficialPanel } from '#/components/admin/official-panel'
@@ -19,6 +18,7 @@ import { PageHeader, StatusBadge } from '#/components/admin/page'
 import { RequestAnswers } from '#/components/admin/request-view'
 import { useConfirm } from '#/components/admin/confirm'
 import { useCan, useUser } from '#/components/admin/session'
+import { DetailSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/requests/$requestId')({ component: RequestPage })
 
@@ -33,7 +33,7 @@ function RequestPage() {
     queryKey: ['requests', requestId],
     queryFn: () => api.get<Record<string, any>>(`/requests/${requestId}`),
   })
-  if (!r) return <Skeleton className="h-[30rem]" />
+  if (!r) return <DetailSkeleton metrics={0} />
   const def = REQUEST_FORM_BY_TYPE[r.type as RequestType]
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['requests'] })
   const remove = () =>

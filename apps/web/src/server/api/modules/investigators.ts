@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
 import { investigatorAccountSchema, investigatorSchema } from '#/lib/schemas'
+import { can } from '#/lib/permissions'
 import { requirePermission } from '../lib/auth'
 import { audit } from '../lib/audit'
 import { exec, insert, like, one, paging, parseId, rows, scalar, update } from '../lib/db'
@@ -24,7 +25,7 @@ export const investigatorsRoute = new Hono()
     const from = `FROM investigators i WHERE ${where.join(' AND ')}`
     const [data, total] = await Promise.all([
       rows(
-        `SELECT i.id, i.title, i.first_name, i.middle_name, i.last_name, i.staff_no, i.email, i.phone, i.department,
+        `SELECT i.id, i.title, i.first_name, i.middle_name, i.last_name, i.staff_no, i.photo_url, i.email, i.phone, i.department,
                 i.is_active,
                 (SELECT COUNT(*) FROM projects p WHERE p.pi_id = i.id) AS pi_count,
                 (SELECT COUNT(*) FROM project_co_investigators pci WHERE pci.investigator_id = i.id) AS co_count,
@@ -57,15 +58,23 @@ export const investigatorsRoute = new Hono()
         [id],
       ),
     ])
-    return c.json({ ...investigator, projects, account, claims })
+    // Only roles that see claims get the claims list; only those who may
+    // create portal accounts see the account itself.
+    const role = c.get('user').role
+    return c.json({
+      ...investigator,
+      projects,
+      account: can(role, 'investigators', 'manage') ? account : undefined,
+      claims: can(role, 'claims') ? claims : [],
+    })
   })
-  .post('/', requirePermission('investigators', 'manage'), validate('json', investigatorSchema), async (c) => {
+  .post('/', requirePermission('investigators', 'edit'), validate('json', investigatorSchema), async (c) => {
     const data = c.req.valid('json')
     const id = await insert('investigators', data)
     audit(c.get('user'), 'create', 'investigator', id, `Added investigator ${data.firstName} ${data.lastName}`)
     return c.json({ id }, 201)
   })
-  .put('/:id', requirePermission('investigators', 'manage'), validate('json', investigatorSchema), async (c) => {
+  .put('/:id', requirePermission('investigators', 'edit'), validate('json', investigatorSchema), async (c) => {
     const id = parseId(c.req.param('id'))
     const data = c.req.valid('json')
     if (!(await update('investigators', id, data))) throw notFound('Investigator')

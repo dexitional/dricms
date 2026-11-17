@@ -14,10 +14,10 @@ import { dateTime } from '#/lib/format'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import { Input, Textarea } from '#/components/ui/input'
-import { Skeleton } from '#/components/ui/skeleton'
 import { Field, FormActions, FormSection } from '#/components/admin/form'
 import { PageHeader, ProgressBar } from '#/components/admin/page'
 import { useCan } from '#/components/admin/session'
+import { DetailSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/projects/$projectId/kickoff')({ component: KickoffPage })
 
@@ -56,7 +56,7 @@ function KickoffPage() {
     },
     onError: (err) => toast.error(errorMessage(err)),
   })
-  if (!data) return <Skeleton className="h-[30rem]" />
+  if (!data) return <DetailSkeleton metrics={0} />
   const items = (watch('items') ?? []) as Array<{ tick: boolean | null }>
   const covered = items.filter((i) => i.tick !== null).length
 

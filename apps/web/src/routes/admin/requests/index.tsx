@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ExternalLink, FileStack } from 'lucide-react'
+import { ExternalLink, FilePlus2, FileStack } from 'lucide-react'
 import { REQUEST_STATUSES } from '@dric/db/types'
 import type { RequestType } from '@dric/db/types'
 import { api } from '#/lib/api-client'
@@ -42,11 +42,19 @@ function RequestsPage() {
         title={user.role === 'investigator' ? 'My requests' : 'Form requests'}
         description="Submissions of the DRIC request forms: intent to submit, letters of support, proposal reviews, close-outs and equipment transfers."
         actions={
-          <Button variant="outline" asChild>
-            <a href="/#forms" target="_blank" rel="noreferrer">
-              <ExternalLink /> Open forms site
-            </a>
-          </Button>
+          user.role === 'investigator' ? (
+            <Button asChild>
+              <Link to="/admin/requests/new">
+                <FilePlus2 /> Create request form
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" asChild>
+              <a href="/#forms" target="_blank" rel="noreferrer">
+                <ExternalLink /> Open forms site
+              </a>
+            </Button>
+          )
         }
       />
       <StatusTabs

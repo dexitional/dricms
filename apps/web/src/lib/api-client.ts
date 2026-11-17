@@ -32,6 +32,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = import.meta.env.SSR
     ? await (await import('#/server/internal-fetch')).serverFetch(`${API_URL}${path}`, options)
     : await fetch(`${API_URL}${path}`, options)
+  // A session that expired while the page was open: send the person to sign in
+  // again, then back here. (Sign-in itself answers 401 for a wrong password.)
+  if (res.status === 401 && !import.meta.env.SSR && !path.startsWith('/auth/')) {
+    const here = window.location.pathname + window.location.search
+    window.location.assign(`/login?next=${encodeURIComponent(here)}`)
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }))
     throw new ApiError(body.error ?? 'Request failed', res.status)

@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '#/lib/api-client'
-import { Skeleton } from '#/components/ui/skeleton'
 import { PageHeader } from '#/components/admin/page'
 import { ProjectForm } from '#/components/forms/project-form'
+import { FormSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/projects/$projectId/edit')({ component: EditProject })
 
@@ -20,7 +20,7 @@ function EditProject() {
         eyebrow={data?.code}
         title="Edit project"
       />
-      {data ? <ProjectForm project={data} /> : <Skeleton className="h-96" />}
+      {data ? <ProjectForm project={data} /> : <FormSkeleton sections={3} />}
     </>
   )
 }

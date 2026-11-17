@@ -1,4 +1,12 @@
-import type { ActivityStatus, ClaimStatus, ProjectStatus, ProjectType, RequestStatus, UserRole } from '@dric/db'
+import type {
+  ActivityStatus,
+  ClaimStatus,
+  ProjectStatus,
+  ProjectType,
+  RequestStatus,
+  RetirementStatus,
+  UserRole,
+} from '@dric/db'
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   administrator: 'Administrator',
@@ -41,6 +49,20 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   DECLINED: 'Declined',
 }
 
+/** Review state of one retirement line. */
+export const RETIREMENT_STATUS_LABELS: Record<RetirementStatus, string> = {
+  SUBMITTED: 'Awaiting review',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+}
+
+/** How far a tranche has been retired (server/api/lib/ledger.ts). */
+export const RETIREMENT_STATE_LABELS: Record<string, string> = {
+  UNRETIRED: 'Not retired',
+  PARTIAL: 'Partly retired',
+  RETIRED: 'Retired',
+}
+
 export type Tone = 'neutral' | 'info' | 'warning' | 'success' | 'danger' | 'brand'
 
 export const STATUS_TONES: Record<string, Tone> = {
@@ -56,6 +78,11 @@ export const STATUS_TONES: Record<string, Tone> = {
   SUBMITTED: 'warning',
   RECEIVED: 'info',
   UNDER_REVIEW: 'brand',
+  ACCEPTED: 'success',
+  REJECTED: 'danger',
+  UNRETIRED: 'danger',
+  PARTIAL: 'warning',
+  RETIRED: 'success',
 }
 
 export const TITLES = ['Prof.', 'Assoc. Prof.', 'Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Rev.', 'Hon.']

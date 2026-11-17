@@ -16,6 +16,7 @@ import { Route as TrackRouteImport } from './routes/track'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccountRouteImport } from './routes/admin/account'
 import { Route as AdminActivityRouteImport } from './routes/admin/activity'
+import { Route as AdminRatesRouteImport } from './routes/admin/rates'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as FormsSlugRouteImport } from './routes/forms/$slug'
@@ -32,24 +33,32 @@ import { Route as AdminPersonnelIndexRouteImport } from './routes/admin/personne
 import { Route as AdminPersonnelNewRouteImport } from './routes/admin/personnel/new'
 import { Route as AdminProjectsIndexRouteImport } from './routes/admin/projects/index'
 import { Route as AdminProjectsNewRouteImport } from './routes/admin/projects/new'
+import { Route as AdminRemittancesIndexRouteImport } from './routes/admin/remittances/index'
+import { Route as AdminRemittancesNewRouteImport } from './routes/admin/remittances/new'
 import { Route as AdminRequestsIndexRouteImport } from './routes/admin/requests/index'
 import { Route as AdminRequestsRequestIdRouteImport } from './routes/admin/requests/$requestId'
 import { Route as PrintClaimClaimIdRouteImport } from './routes/print/claim.$claimId'
 import { Route as PrintKickoffProjectIdRouteImport } from './routes/print/kickoff.$projectId'
+import { Route as PrintLedgerProjectIdRouteImport } from './routes/print/ledger.$projectId'
 import { Route as PrintPaymentPaymentIdRouteImport } from './routes/print/payment.$paymentId'
 import { Route as PrintRequestReferenceRouteImport } from './routes/print/request.$reference'
+import { Route as PrintRetirementPaymentIdRouteImport } from './routes/print/retirement.$paymentId'
 import { Route as AdminClaimsClaimIdIndexRouteImport } from './routes/admin/claims/$claimId/index'
 import { Route as AdminClaimsClaimIdEditRouteImport } from './routes/admin/claims/$claimId/edit'
 import { Route as AdminFundersFunderIdIndexRouteImport } from './routes/admin/funders/$funderId/index'
 import { Route as AdminFundersFunderIdEditRouteImport } from './routes/admin/funders/$funderId/edit'
 import { Route as AdminInvestigatorsInvestigatorIdIndexRouteImport } from './routes/admin/investigators/$investigatorId/index'
 import { Route as AdminInvestigatorsInvestigatorIdEditRouteImport } from './routes/admin/investigators/$investigatorId/edit'
+import { Route as AdminPaymentsPaymentIdIndexRouteImport } from './routes/admin/payments/$paymentId/index'
 import { Route as AdminPaymentsPaymentIdEditRouteImport } from './routes/admin/payments/$paymentId/edit'
 import { Route as AdminPersonnelPersonnelIdIndexRouteImport } from './routes/admin/personnel/$personnelId/index'
 import { Route as AdminPersonnelPersonnelIdEditRouteImport } from './routes/admin/personnel/$personnelId/edit'
 import { Route as AdminProjectsProjectIdIndexRouteImport } from './routes/admin/projects/$projectId/index'
 import { Route as AdminProjectsProjectIdEditRouteImport } from './routes/admin/projects/$projectId/edit'
 import { Route as AdminProjectsProjectIdKickoffRouteImport } from './routes/admin/projects/$projectId/kickoff'
+import { Route as AdminRemittancesRemittanceIdEditRouteImport } from './routes/admin/remittances/$remittanceId/edit'
+import { Route as AdminRequestsNewIndexRouteImport } from './routes/admin/requests/new/index'
+import { Route as AdminRequestsNewSlugRouteImport } from './routes/admin/requests/new/$slug'
 import { Route as AdminProjectsProjectIdPhasesNewRouteImport } from './routes/admin/projects/$projectId/phases/new'
 import { Route as AdminProjectsProjectIdPhasesPhaseIdIndexRouteImport } from './routes/admin/projects/$projectId/phases/$phaseId/index'
 import { Route as AdminProjectsProjectIdPhasesPhaseIdEditRouteImport } from './routes/admin/projects/$projectId/phases/$phaseId/edit'
@@ -87,6 +96,11 @@ const AdminAccountRoute = AdminAccountRouteImport.update({
 const AdminActivityRoute = AdminActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminRatesRoute = AdminRatesRouteImport.update({
+  id: '/rates',
+  path: '/rates',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -169,6 +183,16 @@ const AdminProjectsNewRoute = AdminProjectsNewRouteImport.update({
   path: '/projects/new',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminRemittancesIndexRoute = AdminRemittancesIndexRouteImport.update({
+  id: '/remittances/',
+  path: '/remittances/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminRemittancesNewRoute = AdminRemittancesNewRouteImport.update({
+  id: '/remittances/new',
+  path: '/remittances/new',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminRequestsIndexRoute = AdminRequestsIndexRouteImport.update({
   id: '/requests/',
   path: '/requests/',
@@ -189,6 +213,11 @@ const PrintKickoffProjectIdRoute = PrintKickoffProjectIdRouteImport.update({
   path: '/print/kickoff/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrintLedgerProjectIdRoute = PrintLedgerProjectIdRouteImport.update({
+  id: '/print/ledger/$projectId',
+  path: '/print/ledger/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrintPaymentPaymentIdRoute = PrintPaymentPaymentIdRouteImport.update({
   id: '/print/payment/$paymentId',
   path: '/print/payment/$paymentId',
@@ -199,6 +228,12 @@ const PrintRequestReferenceRoute = PrintRequestReferenceRouteImport.update({
   path: '/print/request/$reference',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrintRetirementPaymentIdRoute =
+  PrintRetirementPaymentIdRouteImport.update({
+    id: '/print/retirement/$paymentId',
+    path: '/print/retirement/$paymentId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminClaimsClaimIdIndexRoute = AdminClaimsClaimIdIndexRouteImport.update({
   id: '/claims/$claimId/',
   path: '/claims/$claimId/',
@@ -231,6 +266,12 @@ const AdminInvestigatorsInvestigatorIdEditRoute =
   AdminInvestigatorsInvestigatorIdEditRouteImport.update({
     id: '/investigators/$investigatorId/edit',
     path: '/investigators/$investigatorId/edit',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
+const AdminPaymentsPaymentIdIndexRoute =
+  AdminPaymentsPaymentIdIndexRouteImport.update({
+    id: '/payments/$paymentId/',
+    path: '/payments/$paymentId/',
     getParentRoute: () => AdminRouteRoute,
   } as any)
 const AdminPaymentsPaymentIdEditRoute =
@@ -269,6 +310,22 @@ const AdminProjectsProjectIdKickoffRoute =
     path: '/projects/$projectId/kickoff',
     getParentRoute: () => AdminRouteRoute,
   } as any)
+const AdminRemittancesRemittanceIdEditRoute =
+  AdminRemittancesRemittanceIdEditRouteImport.update({
+    id: '/remittances/$remittanceId/edit',
+    path: '/remittances/$remittanceId/edit',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
+const AdminRequestsNewIndexRoute = AdminRequestsNewIndexRouteImport.update({
+  id: '/requests/new/',
+  path: '/requests/new/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminRequestsNewSlugRoute = AdminRequestsNewSlugRouteImport.update({
+  id: '/requests/new/$slug',
+  path: '/requests/new/$slug',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminProjectsProjectIdPhasesNewRoute =
   AdminProjectsProjectIdPhasesNewRouteImport.update({
     id: '/projects/$projectId/phases/new',
@@ -295,6 +352,7 @@ export interface FileRoutesByFullPath {
   '/track': typeof TrackRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/activity': typeof AdminActivityRoute
+  '/admin/rates': typeof AdminRatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/$': typeof ApiSplatRoute
   '/forms/$slug': typeof FormsSlugRoute
@@ -306,17 +364,21 @@ export interface FileRoutesByFullPath {
   '/admin/payments/new': typeof AdminPaymentsNewRoute
   '/admin/personnel/new': typeof AdminPersonnelNewRoute
   '/admin/projects/new': typeof AdminProjectsNewRoute
+  '/admin/remittances/new': typeof AdminRemittancesNewRoute
   '/admin/requests/$requestId': typeof AdminRequestsRequestIdRoute
   '/print/claim/$claimId': typeof PrintClaimClaimIdRoute
   '/print/kickoff/$projectId': typeof PrintKickoffProjectIdRoute
+  '/print/ledger/$projectId': typeof PrintLedgerProjectIdRoute
   '/print/payment/$paymentId': typeof PrintPaymentPaymentIdRoute
   '/print/request/$reference': typeof PrintRequestReferenceRoute
+  '/print/retirement/$paymentId': typeof PrintRetirementPaymentIdRoute
   '/admin/claims/': typeof AdminClaimsIndexRoute
   '/admin/funders/': typeof AdminFundersIndexRoute
   '/admin/investigators/': typeof AdminInvestigatorsIndexRoute
   '/admin/payments/': typeof AdminPaymentsIndexRoute
   '/admin/personnel/': typeof AdminPersonnelIndexRoute
   '/admin/projects/': typeof AdminProjectsIndexRoute
+  '/admin/remittances/': typeof AdminRemittancesIndexRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
   '/admin/claims/$claimId/edit': typeof AdminClaimsClaimIdEditRoute
   '/admin/funders/$funderId/edit': typeof AdminFundersFunderIdEditRoute
@@ -325,11 +387,15 @@ export interface FileRoutesByFullPath {
   '/admin/personnel/$personnelId/edit': typeof AdminPersonnelPersonnelIdEditRoute
   '/admin/projects/$projectId/edit': typeof AdminProjectsProjectIdEditRoute
   '/admin/projects/$projectId/kickoff': typeof AdminProjectsProjectIdKickoffRoute
+  '/admin/remittances/$remittanceId/edit': typeof AdminRemittancesRemittanceIdEditRoute
+  '/admin/requests/new/$slug': typeof AdminRequestsNewSlugRoute
   '/admin/claims/$claimId/': typeof AdminClaimsClaimIdIndexRoute
   '/admin/funders/$funderId/': typeof AdminFundersFunderIdIndexRoute
   '/admin/investigators/$investigatorId/': typeof AdminInvestigatorsInvestigatorIdIndexRoute
+  '/admin/payments/$paymentId/': typeof AdminPaymentsPaymentIdIndexRoute
   '/admin/personnel/$personnelId/': typeof AdminPersonnelPersonnelIdIndexRoute
   '/admin/projects/$projectId/': typeof AdminProjectsProjectIdIndexRoute
+  '/admin/requests/new/': typeof AdminRequestsNewIndexRoute
   '/admin/projects/$projectId/phases/new': typeof AdminProjectsProjectIdPhasesNewRoute
   '/admin/projects/$projectId/phases/$phaseId/edit': typeof AdminProjectsProjectIdPhasesPhaseIdEditRoute
   '/admin/projects/$projectId/phases/$phaseId/': typeof AdminProjectsProjectIdPhasesPhaseIdIndexRoute
@@ -340,6 +406,7 @@ export interface FileRoutesByTo {
   '/track': typeof TrackRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/activity': typeof AdminActivityRoute
+  '/admin/rates': typeof AdminRatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/$': typeof ApiSplatRoute
   '/forms/$slug': typeof FormsSlugRoute
@@ -351,17 +418,21 @@ export interface FileRoutesByTo {
   '/admin/payments/new': typeof AdminPaymentsNewRoute
   '/admin/personnel/new': typeof AdminPersonnelNewRoute
   '/admin/projects/new': typeof AdminProjectsNewRoute
+  '/admin/remittances/new': typeof AdminRemittancesNewRoute
   '/admin/requests/$requestId': typeof AdminRequestsRequestIdRoute
   '/print/claim/$claimId': typeof PrintClaimClaimIdRoute
   '/print/kickoff/$projectId': typeof PrintKickoffProjectIdRoute
+  '/print/ledger/$projectId': typeof PrintLedgerProjectIdRoute
   '/print/payment/$paymentId': typeof PrintPaymentPaymentIdRoute
   '/print/request/$reference': typeof PrintRequestReferenceRoute
+  '/print/retirement/$paymentId': typeof PrintRetirementPaymentIdRoute
   '/admin/claims': typeof AdminClaimsIndexRoute
   '/admin/funders': typeof AdminFundersIndexRoute
   '/admin/investigators': typeof AdminInvestigatorsIndexRoute
   '/admin/payments': typeof AdminPaymentsIndexRoute
   '/admin/personnel': typeof AdminPersonnelIndexRoute
   '/admin/projects': typeof AdminProjectsIndexRoute
+  '/admin/remittances': typeof AdminRemittancesIndexRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
   '/admin/claims/$claimId/edit': typeof AdminClaimsClaimIdEditRoute
   '/admin/funders/$funderId/edit': typeof AdminFundersFunderIdEditRoute
@@ -370,11 +441,15 @@ export interface FileRoutesByTo {
   '/admin/personnel/$personnelId/edit': typeof AdminPersonnelPersonnelIdEditRoute
   '/admin/projects/$projectId/edit': typeof AdminProjectsProjectIdEditRoute
   '/admin/projects/$projectId/kickoff': typeof AdminProjectsProjectIdKickoffRoute
+  '/admin/remittances/$remittanceId/edit': typeof AdminRemittancesRemittanceIdEditRoute
+  '/admin/requests/new/$slug': typeof AdminRequestsNewSlugRoute
   '/admin/claims/$claimId': typeof AdminClaimsClaimIdIndexRoute
   '/admin/funders/$funderId': typeof AdminFundersFunderIdIndexRoute
   '/admin/investigators/$investigatorId': typeof AdminInvestigatorsInvestigatorIdIndexRoute
+  '/admin/payments/$paymentId': typeof AdminPaymentsPaymentIdIndexRoute
   '/admin/personnel/$personnelId': typeof AdminPersonnelPersonnelIdIndexRoute
   '/admin/projects/$projectId': typeof AdminProjectsProjectIdIndexRoute
+  '/admin/requests/new': typeof AdminRequestsNewIndexRoute
   '/admin/projects/$projectId/phases/new': typeof AdminProjectsProjectIdPhasesNewRoute
   '/admin/projects/$projectId/phases/$phaseId/edit': typeof AdminProjectsProjectIdPhasesPhaseIdEditRoute
   '/admin/projects/$projectId/phases/$phaseId': typeof AdminProjectsProjectIdPhasesPhaseIdIndexRoute
@@ -387,6 +462,7 @@ export interface FileRoutesById {
   '/track': typeof TrackRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/activity': typeof AdminActivityRoute
+  '/admin/rates': typeof AdminRatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/$': typeof ApiSplatRoute
   '/forms/$slug': typeof FormsSlugRoute
@@ -398,17 +474,21 @@ export interface FileRoutesById {
   '/admin/payments/new': typeof AdminPaymentsNewRoute
   '/admin/personnel/new': typeof AdminPersonnelNewRoute
   '/admin/projects/new': typeof AdminProjectsNewRoute
+  '/admin/remittances/new': typeof AdminRemittancesNewRoute
   '/admin/requests/$requestId': typeof AdminRequestsRequestIdRoute
   '/print/claim/$claimId': typeof PrintClaimClaimIdRoute
   '/print/kickoff/$projectId': typeof PrintKickoffProjectIdRoute
+  '/print/ledger/$projectId': typeof PrintLedgerProjectIdRoute
   '/print/payment/$paymentId': typeof PrintPaymentPaymentIdRoute
   '/print/request/$reference': typeof PrintRequestReferenceRoute
+  '/print/retirement/$paymentId': typeof PrintRetirementPaymentIdRoute
   '/admin/claims/': typeof AdminClaimsIndexRoute
   '/admin/funders/': typeof AdminFundersIndexRoute
   '/admin/investigators/': typeof AdminInvestigatorsIndexRoute
   '/admin/payments/': typeof AdminPaymentsIndexRoute
   '/admin/personnel/': typeof AdminPersonnelIndexRoute
   '/admin/projects/': typeof AdminProjectsIndexRoute
+  '/admin/remittances/': typeof AdminRemittancesIndexRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
   '/admin/claims/$claimId/edit': typeof AdminClaimsClaimIdEditRoute
   '/admin/funders/$funderId/edit': typeof AdminFundersFunderIdEditRoute
@@ -417,11 +497,15 @@ export interface FileRoutesById {
   '/admin/personnel/$personnelId/edit': typeof AdminPersonnelPersonnelIdEditRoute
   '/admin/projects/$projectId/edit': typeof AdminProjectsProjectIdEditRoute
   '/admin/projects/$projectId/kickoff': typeof AdminProjectsProjectIdKickoffRoute
+  '/admin/remittances/$remittanceId/edit': typeof AdminRemittancesRemittanceIdEditRoute
+  '/admin/requests/new/$slug': typeof AdminRequestsNewSlugRoute
   '/admin/claims/$claimId/': typeof AdminClaimsClaimIdIndexRoute
   '/admin/funders/$funderId/': typeof AdminFundersFunderIdIndexRoute
   '/admin/investigators/$investigatorId/': typeof AdminInvestigatorsInvestigatorIdIndexRoute
+  '/admin/payments/$paymentId/': typeof AdminPaymentsPaymentIdIndexRoute
   '/admin/personnel/$personnelId/': typeof AdminPersonnelPersonnelIdIndexRoute
   '/admin/projects/$projectId/': typeof AdminProjectsProjectIdIndexRoute
+  '/admin/requests/new/': typeof AdminRequestsNewIndexRoute
   '/admin/projects/$projectId/phases/new': typeof AdminProjectsProjectIdPhasesNewRoute
   '/admin/projects/$projectId/phases/$phaseId/edit': typeof AdminProjectsProjectIdPhasesPhaseIdEditRoute
   '/admin/projects/$projectId/phases/$phaseId/': typeof AdminProjectsProjectIdPhasesPhaseIdIndexRoute
@@ -435,6 +519,7 @@ export interface FileRouteTypes {
     | '/track'
     | '/admin/account'
     | '/admin/activity'
+    | '/admin/rates'
     | '/admin/users'
     | '/api/$'
     | '/forms/$slug'
@@ -446,17 +531,21 @@ export interface FileRouteTypes {
     | '/admin/payments/new'
     | '/admin/personnel/new'
     | '/admin/projects/new'
+    | '/admin/remittances/new'
     | '/admin/requests/$requestId'
     | '/print/claim/$claimId'
     | '/print/kickoff/$projectId'
+    | '/print/ledger/$projectId'
     | '/print/payment/$paymentId'
     | '/print/request/$reference'
+    | '/print/retirement/$paymentId'
     | '/admin/claims/'
     | '/admin/funders/'
     | '/admin/investigators/'
     | '/admin/payments/'
     | '/admin/personnel/'
     | '/admin/projects/'
+    | '/admin/remittances/'
     | '/admin/requests/'
     | '/admin/claims/$claimId/edit'
     | '/admin/funders/$funderId/edit'
@@ -465,11 +554,15 @@ export interface FileRouteTypes {
     | '/admin/personnel/$personnelId/edit'
     | '/admin/projects/$projectId/edit'
     | '/admin/projects/$projectId/kickoff'
+    | '/admin/remittances/$remittanceId/edit'
+    | '/admin/requests/new/$slug'
     | '/admin/claims/$claimId/'
     | '/admin/funders/$funderId/'
     | '/admin/investigators/$investigatorId/'
+    | '/admin/payments/$paymentId/'
     | '/admin/personnel/$personnelId/'
     | '/admin/projects/$projectId/'
+    | '/admin/requests/new/'
     | '/admin/projects/$projectId/phases/new'
     | '/admin/projects/$projectId/phases/$phaseId/edit'
     | '/admin/projects/$projectId/phases/$phaseId/'
@@ -480,6 +573,7 @@ export interface FileRouteTypes {
     | '/track'
     | '/admin/account'
     | '/admin/activity'
+    | '/admin/rates'
     | '/admin/users'
     | '/api/$'
     | '/forms/$slug'
@@ -491,17 +585,21 @@ export interface FileRouteTypes {
     | '/admin/payments/new'
     | '/admin/personnel/new'
     | '/admin/projects/new'
+    | '/admin/remittances/new'
     | '/admin/requests/$requestId'
     | '/print/claim/$claimId'
     | '/print/kickoff/$projectId'
+    | '/print/ledger/$projectId'
     | '/print/payment/$paymentId'
     | '/print/request/$reference'
+    | '/print/retirement/$paymentId'
     | '/admin/claims'
     | '/admin/funders'
     | '/admin/investigators'
     | '/admin/payments'
     | '/admin/personnel'
     | '/admin/projects'
+    | '/admin/remittances'
     | '/admin/requests'
     | '/admin/claims/$claimId/edit'
     | '/admin/funders/$funderId/edit'
@@ -510,11 +608,15 @@ export interface FileRouteTypes {
     | '/admin/personnel/$personnelId/edit'
     | '/admin/projects/$projectId/edit'
     | '/admin/projects/$projectId/kickoff'
+    | '/admin/remittances/$remittanceId/edit'
+    | '/admin/requests/new/$slug'
     | '/admin/claims/$claimId'
     | '/admin/funders/$funderId'
     | '/admin/investigators/$investigatorId'
+    | '/admin/payments/$paymentId'
     | '/admin/personnel/$personnelId'
     | '/admin/projects/$projectId'
+    | '/admin/requests/new'
     | '/admin/projects/$projectId/phases/new'
     | '/admin/projects/$projectId/phases/$phaseId/edit'
     | '/admin/projects/$projectId/phases/$phaseId'
@@ -526,6 +628,7 @@ export interface FileRouteTypes {
     | '/track'
     | '/admin/account'
     | '/admin/activity'
+    | '/admin/rates'
     | '/admin/users'
     | '/api/$'
     | '/forms/$slug'
@@ -537,17 +640,21 @@ export interface FileRouteTypes {
     | '/admin/payments/new'
     | '/admin/personnel/new'
     | '/admin/projects/new'
+    | '/admin/remittances/new'
     | '/admin/requests/$requestId'
     | '/print/claim/$claimId'
     | '/print/kickoff/$projectId'
+    | '/print/ledger/$projectId'
     | '/print/payment/$paymentId'
     | '/print/request/$reference'
+    | '/print/retirement/$paymentId'
     | '/admin/claims/'
     | '/admin/funders/'
     | '/admin/investigators/'
     | '/admin/payments/'
     | '/admin/personnel/'
     | '/admin/projects/'
+    | '/admin/remittances/'
     | '/admin/requests/'
     | '/admin/claims/$claimId/edit'
     | '/admin/funders/$funderId/edit'
@@ -556,11 +663,15 @@ export interface FileRouteTypes {
     | '/admin/personnel/$personnelId/edit'
     | '/admin/projects/$projectId/edit'
     | '/admin/projects/$projectId/kickoff'
+    | '/admin/remittances/$remittanceId/edit'
+    | '/admin/requests/new/$slug'
     | '/admin/claims/$claimId/'
     | '/admin/funders/$funderId/'
     | '/admin/investigators/$investigatorId/'
+    | '/admin/payments/$paymentId/'
     | '/admin/personnel/$personnelId/'
     | '/admin/projects/$projectId/'
+    | '/admin/requests/new/'
     | '/admin/projects/$projectId/phases/new'
     | '/admin/projects/$projectId/phases/$phaseId/edit'
     | '/admin/projects/$projectId/phases/$phaseId/'
@@ -576,8 +687,10 @@ export interface RootRouteChildren {
   SubmittedReferenceRoute: typeof SubmittedReferenceRoute
   PrintClaimClaimIdRoute: typeof PrintClaimClaimIdRoute
   PrintKickoffProjectIdRoute: typeof PrintKickoffProjectIdRoute
+  PrintLedgerProjectIdRoute: typeof PrintLedgerProjectIdRoute
   PrintPaymentPaymentIdRoute: typeof PrintPaymentPaymentIdRoute
   PrintRequestReferenceRoute: typeof PrintRequestReferenceRoute
+  PrintRetirementPaymentIdRoute: typeof PrintRetirementPaymentIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -629,6 +742,13 @@ declare module '@tanstack/react-router' {
       path: '/activity'
       fullPath: '/admin/activity'
       preLoaderRoute: typeof AdminActivityRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/rates': {
+      id: '/admin/rates'
+      path: '/rates'
+      fullPath: '/admin/rates'
+      preLoaderRoute: typeof AdminRatesRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/users': {
@@ -743,6 +863,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProjectsNewRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/remittances/': {
+      id: '/admin/remittances/'
+      path: '/remittances'
+      fullPath: '/admin/remittances/'
+      preLoaderRoute: typeof AdminRemittancesIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/remittances/new': {
+      id: '/admin/remittances/new'
+      path: '/remittances/new'
+      fullPath: '/admin/remittances/new'
+      preLoaderRoute: typeof AdminRemittancesNewRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/requests/': {
       id: '/admin/requests/'
       path: '/requests'
@@ -771,6 +905,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrintKickoffProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/print/ledger/$projectId': {
+      id: '/print/ledger/$projectId'
+      path: '/print/ledger/$projectId'
+      fullPath: '/print/ledger/$projectId'
+      preLoaderRoute: typeof PrintLedgerProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/print/payment/$paymentId': {
       id: '/print/payment/$paymentId'
       path: '/print/payment/$paymentId'
@@ -783,6 +924,13 @@ declare module '@tanstack/react-router' {
       path: '/print/request/$reference'
       fullPath: '/print/request/$reference'
       preLoaderRoute: typeof PrintRequestReferenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/print/retirement/$paymentId': {
+      id: '/print/retirement/$paymentId'
+      path: '/print/retirement/$paymentId'
+      fullPath: '/print/retirement/$paymentId'
+      preLoaderRoute: typeof PrintRetirementPaymentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/claims/$claimId/': {
@@ -827,6 +975,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInvestigatorsInvestigatorIdEditRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/payments/$paymentId/': {
+      id: '/admin/payments/$paymentId/'
+      path: '/payments/$paymentId'
+      fullPath: '/admin/payments/$paymentId/'
+      preLoaderRoute: typeof AdminPaymentsPaymentIdIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/payments/$paymentId/edit': {
       id: '/admin/payments/$paymentId/edit'
       path: '/payments/$paymentId/edit'
@@ -869,6 +1024,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProjectsProjectIdKickoffRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/remittances/$remittanceId/edit': {
+      id: '/admin/remittances/$remittanceId/edit'
+      path: '/remittances/$remittanceId/edit'
+      fullPath: '/admin/remittances/$remittanceId/edit'
+      preLoaderRoute: typeof AdminRemittancesRemittanceIdEditRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/requests/new/': {
+      id: '/admin/requests/new/'
+      path: '/requests/new'
+      fullPath: '/admin/requests/new/'
+      preLoaderRoute: typeof AdminRequestsNewIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/requests/new/$slug': {
+      id: '/admin/requests/new/$slug'
+      path: '/requests/new/$slug'
+      fullPath: '/admin/requests/new/$slug'
+      preLoaderRoute: typeof AdminRequestsNewSlugRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/projects/$projectId/phases/new': {
       id: '/admin/projects/$projectId/phases/new'
       path: '/projects/$projectId/phases/new'
@@ -896,6 +1072,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminAccountRoute: typeof AdminAccountRoute
   AdminActivityRoute: typeof AdminActivityRoute
+  AdminRatesRoute: typeof AdminRatesRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminClaimsNewRoute: typeof AdminClaimsNewRoute
@@ -904,6 +1081,7 @@ interface AdminRouteRouteChildren {
   AdminPaymentsNewRoute: typeof AdminPaymentsNewRoute
   AdminPersonnelNewRoute: typeof AdminPersonnelNewRoute
   AdminProjectsNewRoute: typeof AdminProjectsNewRoute
+  AdminRemittancesNewRoute: typeof AdminRemittancesNewRoute
   AdminRequestsRequestIdRoute: typeof AdminRequestsRequestIdRoute
   AdminClaimsIndexRoute: typeof AdminClaimsIndexRoute
   AdminFundersIndexRoute: typeof AdminFundersIndexRoute
@@ -911,6 +1089,7 @@ interface AdminRouteRouteChildren {
   AdminPaymentsIndexRoute: typeof AdminPaymentsIndexRoute
   AdminPersonnelIndexRoute: typeof AdminPersonnelIndexRoute
   AdminProjectsIndexRoute: typeof AdminProjectsIndexRoute
+  AdminRemittancesIndexRoute: typeof AdminRemittancesIndexRoute
   AdminRequestsIndexRoute: typeof AdminRequestsIndexRoute
   AdminClaimsClaimIdEditRoute: typeof AdminClaimsClaimIdEditRoute
   AdminFundersFunderIdEditRoute: typeof AdminFundersFunderIdEditRoute
@@ -919,11 +1098,15 @@ interface AdminRouteRouteChildren {
   AdminPersonnelPersonnelIdEditRoute: typeof AdminPersonnelPersonnelIdEditRoute
   AdminProjectsProjectIdEditRoute: typeof AdminProjectsProjectIdEditRoute
   AdminProjectsProjectIdKickoffRoute: typeof AdminProjectsProjectIdKickoffRoute
+  AdminRemittancesRemittanceIdEditRoute: typeof AdminRemittancesRemittanceIdEditRoute
+  AdminRequestsNewSlugRoute: typeof AdminRequestsNewSlugRoute
   AdminClaimsClaimIdIndexRoute: typeof AdminClaimsClaimIdIndexRoute
   AdminFundersFunderIdIndexRoute: typeof AdminFundersFunderIdIndexRoute
   AdminInvestigatorsInvestigatorIdIndexRoute: typeof AdminInvestigatorsInvestigatorIdIndexRoute
+  AdminPaymentsPaymentIdIndexRoute: typeof AdminPaymentsPaymentIdIndexRoute
   AdminPersonnelPersonnelIdIndexRoute: typeof AdminPersonnelPersonnelIdIndexRoute
   AdminProjectsProjectIdIndexRoute: typeof AdminProjectsProjectIdIndexRoute
+  AdminRequestsNewIndexRoute: typeof AdminRequestsNewIndexRoute
   AdminProjectsProjectIdPhasesNewRoute: typeof AdminProjectsProjectIdPhasesNewRoute
   AdminProjectsProjectIdPhasesPhaseIdEditRoute: typeof AdminProjectsProjectIdPhasesPhaseIdEditRoute
   AdminProjectsProjectIdPhasesPhaseIdIndexRoute: typeof AdminProjectsProjectIdPhasesPhaseIdIndexRoute
@@ -932,6 +1115,7 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAccountRoute: AdminAccountRoute,
   AdminActivityRoute: AdminActivityRoute,
+  AdminRatesRoute: AdminRatesRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminClaimsNewRoute: AdminClaimsNewRoute,
@@ -940,6 +1124,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminPaymentsNewRoute: AdminPaymentsNewRoute,
   AdminPersonnelNewRoute: AdminPersonnelNewRoute,
   AdminProjectsNewRoute: AdminProjectsNewRoute,
+  AdminRemittancesNewRoute: AdminRemittancesNewRoute,
   AdminRequestsRequestIdRoute: AdminRequestsRequestIdRoute,
   AdminClaimsIndexRoute: AdminClaimsIndexRoute,
   AdminFundersIndexRoute: AdminFundersIndexRoute,
@@ -947,6 +1132,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminPaymentsIndexRoute: AdminPaymentsIndexRoute,
   AdminPersonnelIndexRoute: AdminPersonnelIndexRoute,
   AdminProjectsIndexRoute: AdminProjectsIndexRoute,
+  AdminRemittancesIndexRoute: AdminRemittancesIndexRoute,
   AdminRequestsIndexRoute: AdminRequestsIndexRoute,
   AdminClaimsClaimIdEditRoute: AdminClaimsClaimIdEditRoute,
   AdminFundersFunderIdEditRoute: AdminFundersFunderIdEditRoute,
@@ -956,12 +1142,16 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminPersonnelPersonnelIdEditRoute: AdminPersonnelPersonnelIdEditRoute,
   AdminProjectsProjectIdEditRoute: AdminProjectsProjectIdEditRoute,
   AdminProjectsProjectIdKickoffRoute: AdminProjectsProjectIdKickoffRoute,
+  AdminRemittancesRemittanceIdEditRoute: AdminRemittancesRemittanceIdEditRoute,
+  AdminRequestsNewSlugRoute: AdminRequestsNewSlugRoute,
   AdminClaimsClaimIdIndexRoute: AdminClaimsClaimIdIndexRoute,
   AdminFundersFunderIdIndexRoute: AdminFundersFunderIdIndexRoute,
   AdminInvestigatorsInvestigatorIdIndexRoute:
     AdminInvestigatorsInvestigatorIdIndexRoute,
+  AdminPaymentsPaymentIdIndexRoute: AdminPaymentsPaymentIdIndexRoute,
   AdminPersonnelPersonnelIdIndexRoute: AdminPersonnelPersonnelIdIndexRoute,
   AdminProjectsProjectIdIndexRoute: AdminProjectsProjectIdIndexRoute,
+  AdminRequestsNewIndexRoute: AdminRequestsNewIndexRoute,
   AdminProjectsProjectIdPhasesNewRoute: AdminProjectsProjectIdPhasesNewRoute,
   AdminProjectsProjectIdPhasesPhaseIdEditRoute:
     AdminProjectsProjectIdPhasesPhaseIdEditRoute,
@@ -983,8 +1173,10 @@ const rootRouteChildren: RootRouteChildren = {
   SubmittedReferenceRoute: SubmittedReferenceRoute,
   PrintClaimClaimIdRoute: PrintClaimClaimIdRoute,
   PrintKickoffProjectIdRoute: PrintKickoffProjectIdRoute,
+  PrintLedgerProjectIdRoute: PrintLedgerProjectIdRoute,
   PrintPaymentPaymentIdRoute: PrintPaymentPaymentIdRoute,
   PrintRequestReferenceRoute: PrintRequestReferenceRoute,
+  PrintRetirementPaymentIdRoute: PrintRetirementPaymentIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

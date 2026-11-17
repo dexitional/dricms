@@ -23,7 +23,7 @@ export const personnelRoute = new Hono()
     const from = `FROM personnel pe WHERE ${where.join(' AND ')}`
     const [data, total] = await Promise.all([
       rows(
-        `SELECT pe.id, pe.title, pe.first_name, pe.middle_name, pe.last_name, pe.staff_no, pe.email, pe.phone,
+        `SELECT pe.id, pe.title, pe.first_name, pe.middle_name, pe.last_name, pe.staff_no, pe.photo_url, pe.email, pe.phone,
                 pe.department, pe.is_active,
                 (SELECT COUNT(*) FROM activity_personnel ap WHERE ap.personnel_id = pe.id) AS activities_count
            ${from} ORDER BY pe.last_name, pe.first_name LIMIT ? OFFSET ?`,
@@ -49,13 +49,13 @@ export const personnelRoute = new Hono()
     )
     return c.json({ ...person, activities })
   })
-  .post('/', requirePermission('personnel', 'manage'), validate('json', personnelSchema), async (c) => {
+  .post('/', requirePermission('personnel', 'edit'), validate('json', personnelSchema), async (c) => {
     const data = c.req.valid('json')
     const id = await insert('personnel', data)
     audit(c.get('user'), 'create', 'personnel', id, `Added personnel ${data.firstName} ${data.lastName}`)
     return c.json({ id }, 201)
   })
-  .put('/:id', requirePermission('personnel', 'manage'), validate('json', personnelSchema), async (c) => {
+  .put('/:id', requirePermission('personnel', 'edit'), validate('json', personnelSchema), async (c) => {
     const id = parseId(c.req.param('id'))
     const data = c.req.valid('json')
     if (!(await update('personnel', id, data))) throw notFound('Personnel')

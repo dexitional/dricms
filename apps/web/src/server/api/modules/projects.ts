@@ -5,6 +5,7 @@
 //   /api/projects/:id             overview, update, delete
 //   /api/projects/:id/phases      create a phase   (+ /next: suggested number & balance b/f)
 //   /api/projects/:id/kickoff     kick-off meeting checklist
+//   /api/projects/:id/ledger      balance sheet: funder remittances in, tranches out
 //   /api/phases/:id               phase overview, update, delete
 //   /api/phases/:id/activities    create an activity
 //   /api/activities/:id           update, delete
@@ -12,11 +13,13 @@ import { Hono } from 'hono'
 import type { PoolConnection } from 'mysql2/promise'
 import type { SessionUser } from '#/server/session-core'
 import { KICKOFF_ITEMS } from '#/lib/forms'
+import { FUNDER_CONTACT_ROLES, can } from '#/lib/permissions'
 import { activitySchema, kickoffSchema, phaseSchema, projectSchema } from '#/lib/schemas'
 import { requirePermission } from '../lib/auth'
 import { audit } from '../lib/audit'
 import { exec, insert, like, one, paging, parseId, rows, scalar, update, withTransaction } from '../lib/db'
-import { notFound } from '../lib/errors'
+import { AppError, notFound } from '../lib/errors'
+import { PROJECT_DISBURSED, PROJECT_RECEIVED, projectLedger } from '../lib/ledger'
 import { retryOnDuplicate } from '../lib/refs'
 import { cleanHtml } from '../lib/rich-text'
 import { projectScope } from '../lib/scope'
@@ -97,13 +100,21 @@ export const projectsRoute = new Hono()
       rows(
         `SELECT p.id, p.code, p.title, p.type, p.status, p.total_funding, p.currency, p.start_date, p.end_date,
                 f.name AS funder_name, f.logo_url AS funder_logo, ${PI_NAME} AS pi_name,
-                (SELECT COUNT(*) FROM phases ph WHERE ph.project_id = p.id) AS phases_count
+                (SELECT COUNT(*) FROM phases ph WHERE ph.project_id = p.id) AS phases_count,
+                ${PROJECT_RECEIVED} AS received, ${PROJECT_DISBURSED} AS disbursed
            ${from} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
         [...params, limit, offset],
       ),
       scalar(`SELECT COUNT(*) ${from}`, params),
     ])
-    return c.json({ data, total, page, pageSize })
+    // Fund balances only for roles that see the funds ledger.
+    const seesFunds = can(c.get('user').role, 'remittances')
+    return c.json({
+      data: seesFunds ? data : data.map(({ received: _r, disbursed: _d, ...p }) => p),
+      total,
+      page,
+      pageSize,
+    })
   })
   .get('/:id', requirePermission('projects', 'view'), async (c) => {
     const id = parseId(c.req.param('id'))
@@ -111,6 +122,7 @@ export const projectsRoute = new Hono()
     const project = await one(
       `SELECT p.*, co.name AS country, f.name AS funder_name, f.logo_url AS funder_logo, f.email AS funder_email,
               ${PI_NAME} AS pi_name, i.email AS pi_email, i.phone AS pi_phone, i.department AS pi_department,
+              i.staff_no AS pi_staff_no, i.photo_url AS pi_photo_url,
               EXISTS (SELECT 1 FROM kickoff_checklists k WHERE k.project_id = p.id) AS has_kickoff
          FROM projects p
          LEFT JOIN countries co ON co.id = p.country_id
@@ -122,7 +134,7 @@ export const projectsRoute = new Hono()
     if (!project) throw notFound('Project')
     const [coInvestigators, phases, claims, payments, requests] = await Promise.all([
       rows(
-        `SELECT i.id, ${PI_NAME} AS name, i.email, i.department, i.staff_no
+        `SELECT i.id, ${PI_NAME} AS name, i.email, i.department, i.staff_no, i.photo_url
            FROM project_co_investigators pci JOIN investigators i ON i.id = pci.investigator_id
           WHERE pci.project_id = ? ORDER BY i.last_name`,
         [id],
@@ -155,14 +167,17 @@ export const projectsRoute = new Hono()
         [id],
       ),
     ])
+    // Each role gets only the money records it is allowed to see.
+    const role = c.get('user').role
+    if (!FUNDER_CONTACT_ROLES.includes(role)) delete project.funderEmail
     return c.json({
       ...project,
       hasKickoff: Boolean(project.hasKickoff),
       coInvestigators,
       phases,
-      claims,
-      payments,
-      requests,
+      claims: can(role, 'claims') ? claims : [],
+      payments: can(role, 'payments') ? payments : [],
+      requests: can(role, 'requests') ? requests : [],
     })
   })
   .post('/', requirePermission('projects', 'manage'), validate('json', projectSchema), async (c) => {
@@ -187,6 +202,22 @@ export const projectsRoute = new Hono()
   .put('/:id', requirePermission('projects', 'manage'), validate('json', projectSchema), async (c) => {
     const id = parseId(c.req.param('id'))
     const { coInvestigatorIds, ...data } = c.req.valid('json')
+    // Remittance and tranche rates are into the project's currency.
+    const current = await one<{ currency: string; moneyMoved: number }>(
+      `SELECT p.currency,
+              EXISTS (SELECT 1 FROM remittances r WHERE r.project_id = p.id)
+              OR EXISTS (SELECT 1 FROM payments pm JOIN claims cl ON cl.id = pm.claim_id JOIN phases ph ON ph.id = cl.phase_id
+                          WHERE ph.project_id = p.id) AS money_moved
+         FROM projects p WHERE p.id = ?`,
+      [id],
+    )
+    if (!current) throw notFound('Project')
+    if (current.moneyMoved && current.currency !== data.currency) {
+      throw new AppError(
+        `Funds have been received or paid out in ${current.currency} for this project, so its currency can't change.`,
+        409,
+      )
+    }
     await withTransaction(async (conn) => {
       if (!(await update('projects', id, { ...data, finalReport: cleanHtml(data.finalReport) }, conn))) {
         throw notFound('Project')
@@ -200,8 +231,9 @@ export const projectsRoute = new Hono()
     const id = parseId(c.req.param('id'))
     const project = await one<{ title: string }>('SELECT title FROM projects WHERE id = ?', [id])
     if (!project) throw notFound('Project')
-    // Payments restrict claim deletion, so a project with money paid out
-    // can't be deleted (the error handler answers 409).
+    // Payments restrict claim deletion and remittances restrict the project,
+    // so a project with money received or paid out can't be deleted (the
+    // error handler answers 409).
     await exec('DELETE FROM projects WHERE id = ?', [id])
     audit(c.get('user'), 'delete', 'project', id, `Deleted project ${project.title}`)
     return c.json({ ok: true })
@@ -227,6 +259,13 @@ export const projectsRoute = new Hono()
     const id = await insert('phases', { ...data, projectId, report: cleanHtml(data.report) })
     audit(c.get('user'), 'create', 'phase', id, `Added phase ${data.phaseNo}: ${data.title}`)
     return c.json({ id }, 201)
+  })
+
+  // ----------------------------------------------------------- Balance sheet
+  .get('/:id/ledger', requirePermission('remittances', 'view'), async (c) => {
+    const id = parseId(c.req.param('id'))
+    await assertProjectAccess(c.get('user'), id)
+    return c.json(await projectLedger(id))
   })
 
   // ----------------------------------------------------------- Kick-off checklist
@@ -281,12 +320,23 @@ export const phasesRoute = new Hono()
          FROM phases ph JOIN projects p ON p.id = ph.project_id WHERE ph.id = ?`,
       [id],
     )
-    const [activities, claims, siblings] = await Promise.all([
+    const [activities, retired, claims, siblings] = await Promise.all([
       rows(
         `SELECT a.*,
                 (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pe.id, 'name', TRIM(CONCAT_WS(' ', pe.title, pe.first_name, pe.last_name))))
                    FROM activity_personnel ap JOIN personnel pe ON pe.id = ap.personnel_id WHERE ap.activity_id = a.id) AS personnel
            FROM activities a WHERE a.phase_id = ? ORDER BY a.start_date IS NULL, a.start_date, a.id`,
+        [id],
+      ),
+      // Receipts retired against each activity, per tranche currency.
+      rows(
+        `SELECT rt.activity_id, pm.currency,
+                SUM(IF(rt.status = 'ACCEPTED', rt.amount, 0)) AS accepted,
+                SUM(IF(rt.status = 'SUBMITTED', rt.amount, 0)) AS pending,
+                SUM(JSON_LENGTH(rt.receipts)) AS receipts
+           FROM retirements rt JOIN payments pm ON pm.id = rt.payment_id JOIN activities a ON a.id = rt.activity_id
+          WHERE a.phase_id = ? AND rt.status <> 'REJECTED'
+          GROUP BY rt.activity_id, pm.currency`,
         [id],
       ),
       rows(
@@ -297,10 +347,16 @@ export const phasesRoute = new Hono()
       ),
       rows('SELECT id, phase_no, title FROM phases WHERE project_id = ? ORDER BY phase_no', [phase!.projectId]),
     ])
+    const role = c.get('user').role
+    const seesRetired = can(role, 'retirements')
     return c.json({
       ...phase,
-      activities: activities.map((a) => ({ ...a, personnel: a.personnel ?? [] })),
-      claims,
+      activities: activities.map((a) => ({
+        ...a,
+        personnel: a.personnel ?? [],
+        retired: seesRetired ? retired.filter((r) => r.activityId === a.id) : [],
+      })),
+      claims: can(role, 'claims') ? claims : [],
       siblings,
     })
   })
@@ -354,6 +410,9 @@ export const activitiesRoute = new Hono()
     )
     if (!activity) throw notFound('Activity')
     await phaseProject(c.get('user'), activity.phaseId)
+    if (await scalar('SELECT COUNT(*) FROM retirements WHERE activity_id = ?', [id])) {
+      throw new AppError('Tranche receipts have been retired against this activity, so it cannot be deleted.', 409)
+    }
     await exec('DELETE FROM activities WHERE id = ?', [id])
     audit(c.get('user'), 'delete', 'activity', id, `Deleted activity ${activity.title}`)
     return c.json({ ok: true })

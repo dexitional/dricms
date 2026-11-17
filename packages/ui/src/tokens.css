@@ -22,6 +22,8 @@
   --secondary: #fee2e2;
   --secondary-foreground: #991b1b;
   --secondary-strong: #fecaca;
+  /* A lighter blush for highlighted summary cards. */
+  --secondary-soft: #fff5f5;
 
   --muted: #f6f7f9;
   --muted-foreground: #64748b;
@@ -77,6 +79,7 @@
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary-strong: var(--secondary-strong);
+  --color-secondary-soft: var(--secondary-soft);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-subtle-foreground: var(--subtle-foreground);

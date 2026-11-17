@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, Inbox } from 'lucide-react'
 import { cn } from '@dric/ui'
@@ -136,7 +137,30 @@ export function ProgressBar({
   )
 }
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
+// UCC publishes staff photos by staff number.
+export function uccPhotoUrl(staffNo?: string | null) {
+  const tag = staffNo?.trim()
+  return tag ? `https://cdn.ucc.edu.gh/photos/?tag=${encodeURIComponent(tag)}` : null
+}
+
+/** A person's photo: their uploaded one, else their UCC staff photo, else initials. */
+export function Avatar({
+  name,
+  className,
+  photoUrl,
+  staffNo,
+}: {
+  name: string
+  className?: string
+  photoUrl?: string | null
+  staffNo?: string | null
+}) {
+  const sources = [photoUrl, uccPhotoUrl(staffNo)].filter((s): s is string => Boolean(s))
+  const key = sources.join('|')
+  // Move on to the next source when one fails to load.
+  const [failed, setFailed] = useState<{ key: string; count: number }>({ key, count: 0 })
+  const tried = failed.key === key ? failed.count : 0
+  const src = sources[tried]
   const letters = name
     .replace(/^(Prof\.|Assoc\. Prof\.|Dr\.|Mr\.|Mrs\.|Ms\.|Rev\.|Hon\.)\s*/i, '')
     .split(/\s+/)
@@ -147,11 +171,22 @@ export function Avatar({ name, className }: { name: string; className?: string }
   return (
     <span
       className={cn(
-        'inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[0.7rem] font-bold text-primary',
+        'inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-[0.7rem] font-bold text-primary',
         className,
       )}
     >
-      {initials || '?'}
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="size-full object-cover"
+          onError={() => setFailed({ key, count: tried + 1 })}
+        />
+      ) : (
+        initials || '?'
+      )}
     </span>
   )
 }

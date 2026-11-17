@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Outlet, createFileRoute, redirect, useNavigate, useRouterState } from '@tanstack/react-router'
+import { Link, Outlet, createFileRoute, redirect, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Activity,
@@ -11,6 +11,8 @@ import {
   FolderKanban,
   HandCoins,
   KeyRound,
+  ArrowLeftRight,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -23,15 +25,25 @@ import { cn } from '@dric/ui'
 import { getSession } from '#/server/session'
 import { api } from '#/lib/api-client'
 import { ROLE_LABELS } from '#/lib/labels'
-import { can } from '#/lib/permissions'
+import { AUDIT_ALL_ROLES, can } from '#/lib/permissions'
 import type { Module } from '#/lib/permissions'
 import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from '#/components/ui/dropdown'
 import { Avatar } from '#/components/admin/page'
+import { SESSION_QUERY_KEY, SESSION_STALE_MS } from '#/components/admin/session'
 
 export const Route = createFileRoute('/admin')({
-  beforeLoad: async ({ location }) => {
-    const user = await getSession()
-    if (!user) throw redirect({ to: '/login', search: { next: location.href } })
+  // Runs on every admin navigation, so it reads the cached session instead of
+  // asking the server each time (that wait held every click on slow networks).
+  beforeLoad: async ({ context, location }) => {
+    const user = await context.queryClient.ensureQueryData({
+      queryKey: SESSION_QUERY_KEY,
+      queryFn: () => getSession(),
+      staleTime: SESSION_STALE_MS,
+    })
+    if (!user) {
+      context.queryClient.removeQueries({ queryKey: SESSION_QUERY_KEY })
+      throw redirect({ to: '/login', search: { next: location.href } })
+    }
     return { user }
   },
   head: () => ({ meta: [{ title: 'DRIC Grants Portal' }, { name: 'robots', content: 'noindex' }] }),
@@ -65,6 +77,8 @@ const NAV: Array<{ heading: string; items: Array<NavItem> }> = [
     items: [
       { to: '/admin/claims', label: 'Claims', icon: HandCoins, module: 'claims' },
       { to: '/admin/payments', label: 'Payments', icon: Banknote, module: 'payments' },
+      { to: '/admin/remittances', label: 'Remittances', icon: Landmark, module: 'remittances' },
+      { to: '/admin/rates', label: 'Exchange rates', icon: ArrowLeftRight, module: 'rates' },
     ],
   },
   {
@@ -85,8 +99,10 @@ const NAV: Array<{ heading: string; items: Array<NavItem> }> = [
 
 const INVESTIGATOR_LABELS: Record<string, string> = {
   '/admin/projects': 'My projects',
+  '/admin/funders': 'My funders',
   '/admin/claims': 'My claims',
   '/admin/requests': 'My requests',
+  '/admin/remittances': 'Funds received',
 }
 
 function AdminLayout() {
@@ -96,6 +112,23 @@ function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [mobileOpen, setMobileOpen] = useState(false)
   useEffect(() => setMobileOpen(false), [pathname])
+  // Fetch the code of every page in the sidebar while the browser is idle, so
+  // a click (or a tap, where there is no hover to preload on) opens at once.
+  const router = useRouter()
+  useEffect(() => {
+    const targets = NAV.flatMap((g) => g.items)
+      .filter((item) => can(user.role, item.module))
+      .map((item) => item.to)
+    const run = () => {
+      for (const to of targets) void router.preloadRoute({ to }).catch(() => undefined)
+    }
+    const idle = window.requestIdleCallback?.(run, { timeout: 3000 })
+    const timer = idle === undefined ? window.setTimeout(run, 1500) : undefined
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback(idle)
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
+  }, [router, user.role])
 
   const logout = async () => {
     await api.post('/auth/logout')
@@ -137,7 +170,11 @@ function AdminLayout() {
                       className="group flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900 [&.active]:bg-white [&.active]:font-semibold [&.active]:text-primary [&.active]:shadow-[0_1px_2px_rgb(15_23_42/0.06),0_0_0_1px_var(--border)]"
                     >
                       <item.icon className="size-4 text-slate-400 group-[.active]:text-secondary-foreground" />
-                      {user.role === 'investigator' ? (INVESTIGATOR_LABELS[item.to] ?? item.label) : item.label}
+                      {user.role === 'investigator'
+                        ? (INVESTIGATOR_LABELS[item.to] ?? item.label)
+                        : item.to === '/admin/activity' && !AUDIT_ALL_ROLES.includes(user.role)
+                          ? 'My activity'
+                          : item.label}
                     </Link>
                   </li>
                 ))}
@@ -226,11 +263,29 @@ function AdminLayout() {
           className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain max-lg:overflow-visible"
           style={{ scrollbarGutter: 'stable' }}
         >
+          <NavigationProgress />
           <main className="mx-auto flex w-full max-w-screen-xl flex-1 flex-col p-6 max-md:px-4">
             <Outlet />
           </main>
         </div>
       </div>
+    </div>
+  )
+}
+
+// A thin bar across the top while a page is on its way, so every click gets
+// instant feedback even before the page or its skeleton appears.
+function NavigationProgress() {
+  const pending = useRouterState({ select: (s) => s.status === 'pending' })
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        'pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity duration-300',
+        pending ? 'opacity-100' : 'opacity-0',
+      )}
+    >
+      <div className="nav-progress h-full w-1/3 rounded-full bg-primary" />
     </div>
   )
 }

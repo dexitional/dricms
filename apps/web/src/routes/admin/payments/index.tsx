@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Banknote, Plus, Printer } from 'lucide-react'
 import { api } from '#/lib/api-client'
 import type { Page } from '#/lib/api-client'
 import { date, money } from '#/lib/format'
+import { RETIREMENT_STATE_LABELS } from '#/lib/labels'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
-import { DataTable, Pagination, SearchInput, Toolbar } from '#/components/admin/data-table'
-import { EmptyState, Money, PageHeader } from '#/components/admin/page'
+import { DataTable, FilterSelect, Pagination, SearchInput, Toolbar } from '#/components/admin/data-table'
+import { EmptyState, Money, PageHeader, StatusBadge } from '#/components/admin/page'
 import { useCan } from '#/components/admin/session'
 
-export const Route = createFileRoute('/admin/payments/')({ component: PaymentsPage })
+export const Route = createFileRoute('/admin/payments/')({
+  validateSearch: z.object({ retirement: z.string().optional() }),
+  component: PaymentsPage,
+})
 
 type Row = Record<string, any> & { id: number }
 
@@ -20,17 +25,18 @@ function PaymentsPage() {
   const [q, setQ] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [retirement, setRetirement] = useState(Route.useSearch().retirement ?? '')
   const [page, setPage] = useState(1)
   const { data, isLoading } = useQuery({
-    queryKey: ['payments', { q, from, to, page }],
-    queryFn: () => api.get<Page<Row>>('/payments', { q, from, to, page }),
+    queryKey: ['payments', { q, from, to, retirement, page }],
+    queryFn: () => api.get<Page<Row>>('/payments', { q, from, to, retirement, page }),
     placeholderData: keepPreviousData,
   })
   return (
     <>
       <PageHeader
         title="Payments"
-        description="Tranche disbursements against approved claims."
+        description="Tranche disbursements against approved claims. Each tranche is retired with receipts for what it was spent on."
         actions={
           canManage && (
             <Button asChild>
@@ -65,11 +71,22 @@ function PaymentsPage() {
             className="w-40 rounded-full"
           />
         </label>
+        <FilterSelect
+          label="Retirement"
+          value={retirement}
+          onChange={(v) => (setRetirement(v), setPage(1))}
+          options={[
+            { value: 'outstanding', label: 'Not fully retired' },
+            { value: 'unretired', label: RETIREMENT_STATE_LABELS.UNRETIRED! },
+            { value: 'partial', label: RETIREMENT_STATE_LABELS.PARTIAL! },
+            { value: 'retired', label: RETIREMENT_STATE_LABELS.RETIRED! },
+          ]}
+        />
       </Toolbar>
       <DataTable
         loading={isLoading}
         rows={data?.data}
-        rowLink={(r) => ({ to: '/admin/claims/$claimId', params: { claimId: String(r.claimId) } })}
+        rowLink={(r) => ({ to: '/admin/payments/$paymentId', params: { paymentId: String(r.id) } })}
         empty={<EmptyState icon={Banknote} title="No payments found" />}
         columns={[
           {
@@ -96,10 +113,8 @@ function PaymentsPage() {
           },
           { header: 'Payee', cell: (r) => <span className="text-xs">{r.payee ?? '—'}</span> },
           {
-            header: 'Description',
-            cell: (r) => (
-              <span className="block max-w-56 truncate text-xs text-muted-foreground">{r.description ?? '—'}</span>
-            ),
+            header: 'Retirement',
+            cell: (r) => <StatusBadge status={r.retirement} label={RETIREMENT_STATE_LABELS[r.retirement]} />,
           },
           {
             header: 'Amount',

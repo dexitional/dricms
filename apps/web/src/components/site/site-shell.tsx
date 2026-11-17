@@ -19,11 +19,15 @@ export function SiteHeader({ dark = false }: { dark?: boolean }) {
   return (
     <header className={dark ? 'relative z-20' : 'sticky top-0 z-30 border-b bg-white/85 backdrop-blur'}>
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-4">
-        <Link to="/" className="flex items-center gap-3">
-          <img src="/ucc-crest-sm.png" alt="University of Cape Coast" className="h-10 w-auto" />
-          <div className="leading-tight">
-            <p className={`text-[0.95rem] font-extrabold tracking-tight ${dark ? 'text-white' : 'text-primary'}`}>
-              DRIC · UCC
+        <Link to="/" className="flex min-w-0 items-center gap-3">
+          <img src="/ucc-crest-sm.png" alt="University of Cape Coast" className="h-10 w-auto shrink-0" />
+          <div className="min-w-0 leading-tight">
+            {/* From sm up the name is sized to run exactly as wide as the line
+                below it; on phones that line is hidden, so it stays smaller. */}
+            <p
+              className={`text-[15px] font-extrabold leading-tight tracking-tight min-[360px]:whitespace-nowrap sm:text-[23.39px] ${dark ? 'text-white' : 'text-primary'}`}
+            >
+              University of Cape Coast
             </p>
             <p className={`hidden text-[0.68rem] sm:block ${dark ? 'text-white/60' : 'text-muted-foreground'}`}>
               Directorate of Research, Innovation and Consultancy
@@ -39,7 +43,7 @@ export function SiteHeader({ dark = false }: { dark?: boolean }) {
           </Link>
           <Link
             to={signedIn ? '/admin' : '/login'}
-            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${dark ? 'bg-white text-primary hover:bg-secondary' : 'btn-shine bg-primary text-white hover:bg-primary-hover'}`}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${dark ? 'bg-white text-primary hover:bg-secondary' : 'btn-shine bg-primary text-white hover:bg-primary-hover'}`}
           >
             {signedIn ? (
               <>

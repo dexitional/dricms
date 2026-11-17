@@ -25,11 +25,18 @@ const TYPES: Record<string, { mime: string; magic: (b: Buffer) => boolean }> = {
   jpg: { mime: 'image/jpeg', magic: (b) => b[0] === 0xff && b[1] === 0xd8 },
   jpeg: { mime: 'image/jpeg', magic: (b) => b[0] === 0xff && b[1] === 0xd8 },
   png: { mime: 'image/png', magic: (b) => b.readUInt32BE(0) === 0x89504e47 },
+  webp: {
+    mime: 'image/webp',
+    magic: (b) => b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP',
+  },
 }
 
 export const DOCUMENT_EXTENSIONS = ['pdf', 'doc', 'docx']
 export const ATTACHMENT_EXTENSIONS = ['pdf', 'doc', 'docx', 'xlsx', 'jpg', 'jpeg', 'png']
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+// Profile photos are resized in the browser before upload, so they stay small.
+export const PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp']
+export const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 
 export interface StoredFile {
   url: string
@@ -38,13 +45,14 @@ export interface StoredFile {
   type: string
 }
 
-export async function saveUpload(file: File, allowed: Array<string>): Promise<StoredFile> {
+export async function saveUpload(file: File, allowed: Array<string>, maxBytes = MAX_UPLOAD_BYTES): Promise<StoredFile> {
   const ext = (file.name.split('.').pop() ?? '').toLowerCase()
   const kind = TYPES[ext]
   if (!kind || !allowed.includes(ext)) {
     throw new AppError(`Only ${allowed.map((e) => e.toUpperCase()).join(', ')} files can be uploaded.`, 415)
   }
-  if (file.size > MAX_UPLOAD_BYTES) throw new AppError('Files must be 10 MB or smaller.', 413)
+  if (file.size > maxBytes)
+    throw new AppError(`Files must be ${Math.round(maxBytes / 1024 / 1024)} MB or smaller.`, 413)
   const buffer = Buffer.from(await file.arrayBuffer())
   if (buffer.length < 4 || !kind.magic(buffer))
     throw new AppError('The file does not look like a valid ' + ext.toUpperCase() + '.', 415)

@@ -5,10 +5,10 @@ import { api } from '#/lib/api-client'
 import { date } from '#/lib/format'
 import { ACTIVITY_STATUS_LABELS } from '#/lib/labels'
 import { Card, CardHeader } from '#/components/ui/card'
-import { Skeleton } from '#/components/ui/skeleton'
 import { DataTable } from '#/components/admin/data-table'
 import { EmptyState, Money, StatusBadge } from '#/components/admin/page'
 import { PersonHeader, PersonSideCards } from '#/components/admin/person-detail'
+import { PersonSkeleton } from '#/components/admin/skeletons'
 
 export const Route = createFileRoute('/admin/personnel/$personnelId/')({ component: PersonnelPage })
 
@@ -20,7 +20,7 @@ function PersonnelPage() {
     queryKey: ['personnel', personnelId],
     queryFn: () => api.get<Row>(`/personnel/${personnelId}`),
   })
-  if (!person) return <Skeleton className="h-96" />
+  if (!person) return <PersonSkeleton />
   return (
     <>
       <PersonHeader person={person} kind="personnel" />

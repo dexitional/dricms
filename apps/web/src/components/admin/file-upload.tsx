@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { FileText, Loader2, Paperclip, UploadCloud, X } from 'lucide-react'
+import { Camera, FileText, Loader2, Paperclip, Trash2, UploadCloud, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@dric/ui'
 import { api, errorMessage } from '#/lib/api-client'
@@ -177,6 +177,127 @@ export function AttachmentsField({
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+/** Uploaded files, read-only, each opening in a new tab. */
+export function AttachmentList({
+  files,
+  empty = 'No documents attached.',
+  className,
+}: {
+  files: Array<UploadedFile> | null | undefined
+  empty?: string
+  className?: string
+}) {
+  if (!files?.length) return <p className={cn('text-sm text-muted-foreground', className)}>{empty}</p>
+  return (
+    <ul className={cn('divide-y rounded-xl border bg-white', className)}>
+      {files.map((f) => (
+        <li key={f.url}>
+          <a
+            href={`${f.url}?name=${encodeURIComponent(f.name)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50"
+          >
+            <Paperclip className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-medium text-primary">{f.name}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{fileSize(f.size)}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// Shrinks a photo to at most 512px on its longer side and re-encodes it as
+// WebP (JPEG where WebP is unsupported), so uploads stay small and sharp.
+async function shrinkPhoto(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.86))
+  if (blob?.type === 'image/webp') return new File([blob], 'photo.webp', { type: 'image/webp' })
+  const jpeg = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88))
+  if (!jpeg) throw new Error('This photo could not be read.')
+  return new File([jpeg], 'photo.jpg', { type: 'image/jpeg' })
+}
+
+/** A profile photo with upload and remove, shown as a round preview. */
+export function PhotoField({
+  value,
+  onChange,
+  preview,
+}: {
+  value: string | null
+  onChange: (url: string | null) => void
+  // What shows when there is no uploaded photo (initials or the UCC photo).
+  preview: React.ReactNode
+}) {
+  const input = useRef<HTMLInputElement>(null)
+  const { busy, upload } = useUploader('/files/photos')
+  const pick = async (file?: File) => {
+    if (!file) return
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      toast.error('Choose a JPG, PNG or WebP photo.')
+      return
+    }
+    try {
+      const saved = await upload(await shrinkPhoto(file))
+      if (saved) onChange(saved.url)
+    } catch {
+      toast.error('This photo could not be read. Try another one.')
+    }
+  }
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative">
+        {preview}
+        {busy && (
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-white/70">
+            <Loader2 className="size-5 animate-spin text-primary" />
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-xl border bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary-soft disabled:opacity-60"
+        >
+          <Camera className="size-4" /> {value ? 'Change photo' : 'Upload photo'}
+        </button>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-xl border bg-white px-3 py-2 text-sm font-medium text-destructive hover:bg-secondary disabled:opacity-60"
+          >
+            <Trash2 className="size-4" /> Remove
+          </button>
+        )}
+        <p className="w-full text-xs text-muted-foreground">
+          JPG, PNG or WebP. Without one, the UCC staff photo is used when there is a staff number.
+        </p>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          void pick(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
     </div>
   )
 }
