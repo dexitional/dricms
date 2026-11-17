@@ -14,9 +14,9 @@ import {
 } from 'lucide-react'
 import { api } from '#/lib/api-client'
 import { REQUEST_FORMS } from '#/lib/forms'
-import { num } from '#/lib/format'
 import { SiteFooter, SiteHeader } from '#/components/site/site-shell'
 import { FormIcon } from '#/components/site/form-icon'
+import { StatsStrip } from '#/components/site/stats-strip'
 
 export const Route = createFileRoute('/')({ component: Landing })
 
@@ -87,23 +87,7 @@ function Landing() {
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto -mt-12 max-w-6xl px-5">
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border bg-border shadow-xl shadow-primary/5 md:grid-cols-4">
-          {[
-            ['Active projects', stats?.ongoingProjects],
-            ['Projects managed', stats?.projects],
-            ['Funding partners', stats?.funders],
-            ['Investigators', stats?.investigators],
-          ].map(([label, value]) => (
-            <div key={label as string} className="bg-white px-6 py-6">
-              <p className="text-3xl font-extrabold tracking-tight text-primary tabular-nums">
-                {value === undefined ? '—' : num(value as number, 0)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <StatsStrip stats={stats} />
 
       <section id="forms" className="mx-auto max-w-7xl scroll-mt-10 px-5 py-24">
         <div className="max-w-2xl">

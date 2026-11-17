@@ -293,3 +293,24 @@ body {
     width: 100%;
   }
 }
+
+/* The landing page's "DRIC at a glance" strip: a gradient accent along its
+   top edge that slowly drifts (components/site/stats-strip.tsx). */
+@keyframes stats-accent-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+.stats-accent {
+  background: linear-gradient(90deg, #172554, #1e3a8a, #dc2626, #d97706, #991b1b, #1e3a8a, #172554);
+  background-size: 200% 100%;
+  animation: stats-accent-drift 8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stats-accent {
+    animation: none;
+  }
+}

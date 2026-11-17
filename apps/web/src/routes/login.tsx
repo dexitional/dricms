@@ -64,7 +64,7 @@ function LoginPage() {
           <p className="mt-4 text-4xl leading-tight font-extrabold">
             Every grant, phase, claim and tranche — in one place.
           </p>
-          <p className="mt-4 text-white/65">For DRIC staff, accountants, clerks and project investigators.</p>
+          <p className="mt-4 text-white/65">For DRIC officers and project investigators.</p>
         </div>
         {/* Adinkra band along the bottom edge, repeated from left to right.
             The motifs are dark navy, so they're turned white to show on the
@@ -149,15 +149,16 @@ function LoginPage() {
               </>
             )}
           </button>
-          <p className="w-full text-center text-xs font-medium text-muted-foreground">
-            Forgotten your password? Ask a DRIC administrator to reset it.
+          <p className="w-full space-y-1.5 text-center text-xs font-medium">
+            <span className="block text-muted-foreground">Forgotten your password?</span>
+            <span className="block text-primary/70 italic">Ask a DRIC administrator to reset it.</span>
           </p>
         </form>
         <Link
           to="/"
           className="mt-8 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary"
         >
-          <ArrowLeft className="size-4" /> Back to DRIC forms
+          <ArrowLeft className="size-4" /> Back to Homepage
         </Link>
       </div>
     </div>
